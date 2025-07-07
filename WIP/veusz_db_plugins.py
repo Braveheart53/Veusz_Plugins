@@ -326,7 +326,7 @@ class _pluginUtilities:
         #     self.tag_map = {}
         from veusz.plugins.datasetplugin import DatasetPluginHelper as hlpr
         # TODO: Replace this with something meaningful
-        inputHelper = []
+        # how to access doc propeties in the get stage
         tag_map = {}
         # TODO: States this is not interatble, find out why, and fix
         # replace helper with something
