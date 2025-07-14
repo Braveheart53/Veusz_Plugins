@@ -7,7 +7,7 @@ calculation to multiple datasets.
 Author: William W. Wallace
 """
 
-import numpy as np -- numpy already imported as *
+import numpy as np
 import veusz.plugins as plugins
 import veusz.plugins.field as field
 
