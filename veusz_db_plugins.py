@@ -10,7 +10,7 @@ Author: William W. Wallace
 """
 
 # %% Module Import
-import numpy as np
+# import numpy as np -- already imported as *
 # import veusz.plugins as plugins
 from veusz.plugins.datasetplugin import (
     DatasetPlugin, DatasetPluginException, Dataset1D, datasetpluginregistry,
@@ -114,31 +114,31 @@ class dBLinearAvgPlugin(DatasetPlugin):
         max_length = max(len(data) for data in linear_data)
 
         # Pad shorter datasets with NaN to handle different lengths
-        # required to create a data_matrix by np.array
+        # required to create a data_matrix by array
         padded_data = []
         for data in linear_data:
             if len(data) < max_length:
-                padded = np.full(max_length, np.nan)
+                padded = full(max_length, nan)
                 padded[:len(data)] = data
                 padded_data.append(padded)
             else:
                 padded_data.append(data)
 
         # Convert to matrix for averaging
-        data_matrix = np.array(padded_data)
+        data_matrix = array(padded_data)
 
         # Compute average in linear domain (ignoring NaN values)
-        with np.errstate(invalid='ignore', divide='ignore'):
-            avg_linear = np.nanmean(data_matrix, axis=0)
+        with errstate(invalid='ignore', divide='ignore'):
+            avg_linear = nanmean(data_matrix, axis=0)
 
         # Convert back to dB: dB = 20*log10(linear)
-        with np.errstate(invalid='ignore', divide='ignore'):
-            avg_db = 20.0 * np.log10(avg_linear)
+        with errstate(invalid='ignore', divide='ignore'):
+            avg_db = 20.0 * log10(avg_linear)
 
         # Handle any infinite or invalid values
-        # TODO: Look at placing np.nan...
-        avg_linear = np.where(np.isfinite(avg_linear), avg_linear, np.nan)
-        avg_db = np.where(np.isfinite(avg_db), avg_db, np.nan)
+        # TODO: Look at placing nan...
+        avg_linear = where(isfinite(avg_linear), avg_linear, nan)
+        avg_db = where(isfinite(avg_db), avg_db, nan)
 
         # Update output datasets
         self.linear_output.update(data=avg_linear)
@@ -202,15 +202,15 @@ class dBToLinearPlugin(DatasetPlugin):
         if input_dataset.serr is not None:
             # For symmetric errors in dB, convert to linear domain
             # Error propagation: if y = 10^(x/20), then dy = y * ln(10)/20 * dx
-            conversion_factor = linear_data * np.log(10) / 20.0
+            conversion_factor = linear_data * log(10) / 20.0
             linear_serr = conversion_factor * input_dataset.serr
 
         if input_dataset.perr is not None:
-            conversion_factor = linear_data * np.log(10) / 20.0
+            conversion_factor = linear_data * log(10) / 20.0
             linear_perr = conversion_factor * input_dataset.perr
 
         if input_dataset.nerr is not None:
-            conversion_factor = linear_data * np.log(10) / 20.0
+            conversion_factor = linear_data * log(10) / 20.0
             linear_nerr = conversion_factor * input_dataset.nerr
 
         self.output.update(
@@ -269,11 +269,11 @@ class LinearTodBPlugin(DatasetPlugin):
 
         # Convert linear to dB: dB = 20*log10(linear)
         # Handle zero and negative values
-        with np.errstate(invalid='ignore', divide='ignore'):
-            db_data = 20.0 * np.log10(np.abs(input_dataset.data))
+        with errstate(invalid='ignore', divide='ignore'):
+            db_data = 20.0 * log10(abs(input_dataset.data))
 
         # Replace infinite values with a NaN
-        db_data = np.where(np.isfinite(db_data), db_data, np.nan)
+        db_data = where(isfinite(db_data), db_data, nan)
 
         # Handle error bars if present
         db_serr = None
@@ -283,19 +283,19 @@ class LinearTodBPlugin(DatasetPlugin):
         # TODO: Test this!
         if input_dataset.serr is not None:
             # Error propagation: if y = 20*log10(x), then dy = 20/(x*ln(10)) * dx
-            conversion_factor = 20.0 / (input_dataset.data * np.log(10))
-            conversion_factor = np.where(np.isfinite(conversion_factor), conversion_factor, 0.0)
-            db_serr = np.abs(conversion_factor * input_dataset.serr)
+            conversion_factor = 20.0 / (input_dataset.data * log(10))
+            conversion_factor = where(isfinite(conversion_factor), conversion_factor, 0.0)
+            db_serr = abs(conversion_factor * input_dataset.serr)
 
         if input_dataset.perr is not None:
-            conversion_factor = 20.0 / (input_dataset.data * np.log(10))
-            conversion_factor = np.where(np.isfinite(conversion_factor), conversion_factor, 0.0)
-            db_perr = np.abs(conversion_factor * input_dataset.perr)
+            conversion_factor = 20.0 / (input_dataset.data * log(10))
+            conversion_factor = where(isfinite(conversion_factor), conversion_factor, 0.0)
+            db_perr = abs(conversion_factor * input_dataset.perr)
 
         if input_dataset.nerr is not None:
-            conversion_factor = 20.0 / (input_dataset.data * np.log(10))
-            conversion_factor = np.where(np.isfinite(conversion_factor), conversion_factor, 0.0)
-            db_nerr = -np.abs(conversion_factor * input_dataset.nerr)
+            conversion_factor = 20.0 / (input_dataset.data * log(10))
+            conversion_factor = where(isfinite(conversion_factor), conversion_factor, 0.0)
+            db_nerr = -abs(conversion_factor * input_dataset.nerr)
 
         self.output.update(
             data=db_data,
@@ -332,22 +332,22 @@ class _MathHelpers:
 
     @staticmethod
     def db_from_lin(arr):
-        with np.errstate(invalid='ignore', divide='ignore'):
-            out = 20.0 * np.log10(arr)
-        return np.where(np.isfinite(out), out, np.nan)
+        with errstate(invalid='ignore', divide='ignore'):
+            out = 20.0 * log10(arr)
+        return where(isfinite(out), out, nan)
 
     @staticmethod
     def pad(arr, N):
         if len(arr) < N:
-            tmp = np.full(N, np.nan)
+            tmp = full(N, nan)
             tmp[: len(arr)] = arr
             return tmp
         return arr
 
     @staticmethod
     def average(arrs):
-        with np.errstate(invalid='ignore', divide='ignore'):
-            return np.nanmean(arrs, axis=0)
+        with errstate(invalid='ignore', divide='ignore'):
+            return nanmean(arrs, axis=0)
 
 # %%% Processing by Tag
 # # ----------------------------------------------------------------------
