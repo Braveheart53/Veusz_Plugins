@@ -7,7 +7,7 @@ calculation to multiple datasets.
 Author: William W. Wallace
 """
 
-# import numpy as np -- numpy already imported as *
+import numpy as np -- numpy already imported as *
 import veusz.plugins as plugins
 import veusz.plugins.field as field
 
@@ -61,7 +61,8 @@ class MeanCenterRangePlugin(plugins.DatasetPlugin):
                 self.output_datasets.append(output_dataset)
 
         if not self.output_datasets:
-            raise plugins.DatasetPluginException('No valid input datasets found')
+            raise plugins.DatasetPluginException(
+                'No valid input datasets found')
 
         return self.output_datasets
 
@@ -88,15 +89,15 @@ class MeanCenterRangePlugin(plugins.DatasetPlugin):
                         f'Dataset "{dataset_name}" is empty')
 
                 # Calculate offset: mean(data) - reference_freq
-                offset = mean(data) - reference_freq
+                offset = np.mean(data) - reference_freq
 
                 # Calculate min and max using peak-to-peak
-                ptp_value = ptp(data)  # peak-to-peak
+                ptp_value = np.ptp(data)  # peak-to-peak
                 data_min = -ptp_value / 2 + offset
                 data_max = ptp_value / 2 + offset
 
                 # Create the new range using linspace
-                new_range = linspace(data_min, data_max, num_points)
+                new_range = np.linspace(data_min, data_max, num_points)
 
                 # Update the corresponding output dataset
                 if i < len(self.output_datasets):
@@ -176,15 +177,15 @@ class MeanCenterRangeSinglePlugin(plugins.DatasetPlugin):
                     f'Dataset "{input_dataset_name}" is empty')
 
             # Calculate offset: mean(data) - reference_freq
-            offset = mean(data) - reference_freq
+            offset = np.mean(data) - reference_freq
 
             # Calculate min and max using peak-to-peak
-            ptp_value = ptp(data)  # peak-to-peak
+            ptp_value = np.ptp(data)  # peak-to-peak
             data_min = -ptp_value / 2 + offset
             data_max = ptp_value / 2 + offset
 
             # Create the new range using linspace
-            new_range = linspace(data_min, data_max, num_points)
+            new_range = np.linspace(data_min, data_max, num_points)
 
             # Update the output dataset
             self.output_dataset.update(data=new_range)
