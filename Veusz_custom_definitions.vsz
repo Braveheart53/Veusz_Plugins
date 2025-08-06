@@ -1,0 +1,7 @@
+# Veusz custom definitions (version 3.6.2)
+# Saved at 2025-08-06T20:25:51.693478
+
+AddCustom('definition', 'dBV2lin(x)', '10**(x/20)')
+AddCustom('definition', 'dBP2lin(x)', '10**(x/10)')
+AddCustom('definition', 'linP2dB(x)', '10*log10(x)')
+AddCustom('definition', 'linV2dB(x)', '20*log10(x)')
