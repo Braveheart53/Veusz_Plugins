@@ -1,0 +1,93 @@
+Veusz version: 4.2
+Python version: 3.13.7 (tags/v3.13.7:bcee1c3, Aug 14 2025, 14:15:11) [MSC v.1944 64 bit (AMD64)]
+Python platform: win32
+Numpy version: 2.3.3
+Qt version: 6.10.0
+PyQt version: 6.9.1
+sip version: 6.11.1
+Date: Thu, 08 Jan 2026 04:05:16 +0000
+
+Traceback (most recent call last):
+  File "veusz\dialogs\importdialog.py", line 283, in slotImport
+  File "veusz\dataimport\dialog_plugin.py", line 171, in doImport
+TypeError: veusz.dataimport.defn_plugin.ImportParamsPlugin() got multiple values for keyword argument 'prefix'
+
+Frame slotImport (File veusz\dialogs\importdialog.py, line 291)
+ self = <veusz.dialogs.importdialog.ImportDialog object at 0x000001947D76E170>
+  self.__dict__ = {'verticalLayout_4': <PyQt6.QtWidgets.QVBoxLayout object at 0x000001947D76F1B0>, 'hboxlayout': <PyQt6.QtWidgets.QHBoxLay...
+  self.__doc__ = 'Dialog box for importing data.\nSee ImportTab classes above which actually do the work of importing\n'
+  self.__firstlineno__ = 89
+  self.__module__ = 'veusz.dialogs.importdialog'
+  self.__static_attributes__ = ('document', 'filenamecompleter', 'filepreviewokay', 'importbutton', 'tabs')
+  self.browsebutton = <PyQt6.QtWidgets.QPushButton object at 0x000001947D76F430>
+  self.buttonBox = <PyQt6.QtWidgets.QDialogButtonBox object at 0x000001947D76FD90>
+  self.clipbutton = <PyQt6.QtWidgets.QToolButton object at 0x000001947D76F4D0>
+  self.dirname = '.'
+  self.document = <veusz.document.doc.Document object at 0x000001947D10DEF0>
+  self.encodingcombo = <veusz.qtwidgets.historyvaluecombo.HistoryValueCombo object at 0x000001947D76F9D0>
+  self.filenamecompleter = <PyQt6.QtWidgets.QCompleter object at 0x000001947D7A8AF0>
+  self.filenameedit = <veusz.qtwidgets.historycombo.HistoryCombo object at 0x000001947D76F390>
+  self.filepreviewokay = True
+  self.gridLayout_4 = <PyQt6.QtWidgets.QGridLayout object at 0x000001947D76F750>
+  self.groupBox = <PyQt6.QtWidgets.QGroupBox object at 0x000001947D76F610>
+  self.hboxlayout = <PyQt6.QtWidgets.QHBoxLayout object at 0x000001947D76F250>
+  self.importbutton = <PyQt6.QtWidgets.QPushButton object at 0x000001947D7A8690>
+  self.label = <PyQt6.QtWidgets.QLabel object at 0x000001947D76F2F0>
+  self.label_2 = <PyQt6.QtWidgets.QLabel object at 0x000001947D76FBB0>
+  self.label_21 = <PyQt6.QtWidgets.QLabel object at 0x000001947D76E530>
+  self.label_22 = <PyQt6.QtWidgets.QLabel object at 0x000001947D76FA70>
+  self.label_3 = <PyQt6.QtWidgets.QLabel object at 0x000001947D76F930>
+  self.linkcheckbox = <veusz.qtwidgets.historycheck.HistoryCheck object at 0x000001947D76F7F0>
+  self.mainwindow = <veusz.windows.mainwindow.MainWindow object at 0x000001947D10C910>
+  self.methodtab = <PyQt6.QtWidgets.QTabWidget object at 0x000001947D76F570>
+  self.prefixcombo = <veusz.qtwidgets.historycombo.HistoryCombo object at 0x000001947D76F890>
+  self.staticMetaObject = <PyQt6.QtCore.QMetaObject object at 0x000001947EE2AA50>
+  self.suffixcombo = <veusz.qtwidgets.historycombo.HistoryCombo object at 0x000001947D76FB10>
+  self.tabs = {}
+  self.tagcombo = <veusz.qtwidgets.historycombo.HistoryCombo object at 0x000001947D76FC50>
+  self.verticalLayout_4 = <PyQt6.QtWidgets.QVBoxLayout object at 0x000001947D76F1B0>
+  self.verticalLayout_6 = <PyQt6.QtWidgets.QVBoxLayout object at 0x000001947D76F6B0>
+ filename = 'C:\\Users\\wwallace\\Documents\\Rpi_TKu_file.dat'
+ linked = True
+ encoding = 'utf_8'
+ importtab = <veusz.dataimport.dialog_plugin.ImportTabPlugins object at 0x000001947D7A8550>
+ prefix = ''
+ suffix = ''
+ tags = []
+
+Frame doImport (File veusz\dataimport\dialog_plugin.py, line 171)
+ self = <veusz.dataimport.dialog_plugin.ImportTabPlugins object at 0x000001947D7A8550>
+  self.__dict__ = {'dialog': <veusz.dialogs.importdialog.ImportDialog object at 0x000001947D76E170>, 'uiloaded': True, 'promote': 'RPi TKu...
+  self.__doc__ = 'Tab for importing using a plugin.'
+  self.__firstlineno__ = 31
+  self.__module__ = 'veusz.dataimport.dialog_plugin'
+  self.__static_attributes__ = ('fields', 'plugininstance', 'promote')
+  self.dialog = <veusz.dialogs.importdialog.ImportDialog object at 0x000001947D76E170>
+  self.fields = [(<PyQt6.QtWidgets.QLabel object at 0x000001947EE967B0>, <veusz.setting.controls.Bool object at 0x000001947EE96710>), (<...
+  self.filefilter = None
+  self.filetypes = ()
+  self.gridLayout_5 = <PyQt6.QtWidgets.QGridLayout object at 0x000001947D7A9130>
+  self.groupBox_2 = <PyQt6.QtWidgets.QGroupBox object at 0x000001947D7A8EB0>
+  self.horizontalLayout = <PyQt6.QtWidgets.QHBoxLayout object at 0x000001947D7A8870>
+  self.label_24 = <PyQt6.QtWidgets.QLabel object at 0x000001947D7A8CD0>
+  self.pluginDescr = <PyQt6.QtWidgets.QLabel object at 0x000001947D7A8E10>
+  self.pluginParams = <PyQt6.QtWidgets.QGroupBox object at 0x000001947D7A9090>
+  self.pluginPreview = <PyQt6.QtWidgets.QTextEdit object at 0x000001947D7A8FF0>
+  self.pluginType = <PyQt6.QtWidgets.QComboBox object at 0x000001947D7A8D70>
+  self.pluginchoicewidget = <PyQt6.QtWidgets.QWidget object at 0x000001947D7A8B90>
+  self.plugininstance = <RPiTKuImportPluginEnhanced object at 0x000001947D75DD30>
+  self.promote = 'RPi TKu Telemetry Import (Enhanced)'
+  self.resource = 'import_plugins.ui'
+  self.staticMetaObject = <PyQt6.QtCore.QMetaObject object at 0x000001947EE2B0D0>
+  self.uiloaded = True
+  self.verticalLayout_7 = <PyQt6.QtWidgets.QVBoxLayout object at 0x000001947D7A8F50>
+  self.verticalLayout_8 = <PyQt6.QtWidgets.QVBoxLayout object at 0x000001947D7A8C30>
+ doc = <veusz.document.doc.Document object at 0x000001947D10DEF0>
+ filename = 'C:\\Users\\wwallace\\Documents\\Rpi_TKu_file.dat'
+ linked = True
+ encoding = 'utf_8'
+ prefix = ''
+ suffix = ''
+ tags = []
+ fields = {'convert_timestamp': True, 'store_statistics': True, 'include_header_in_notes': True, 'prefix': '', 'suffix': ''}
+ plugin = 'RPi TKu Telemetry Import (Enhanced)'
