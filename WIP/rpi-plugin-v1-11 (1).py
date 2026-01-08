@@ -1,16 +1,15 @@
 """
-RPi TKu Telemetry File Import Plugin for Veusz 4.2 - WORKING VERSION
+RPi TKu Telemetry File Import Plugin for Veusz 4.2 - REFINED VERSION
 
 This plugin imports RPi TKu telemetry data files (.dat) with:
 - Full metadata tracking
 - Statistical analysis engine
 - Intelligent dataset organization
-
-CRITICAL FIX: params object doesn't have prefix/suffix attributes.
-Veusz passes them separately to doImport() method signature.
+- Proper tagging (Voltages, Amperages, StateValues)
+- Both original and converted timestamps
 
 Created by: William W. Wallace
-Version: 1.10 (Correct Parameter Handling)
+Version: 1.11 (Refined Requirements)
 """
 
 import os
@@ -49,17 +48,12 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
         self.fields = [
             field.FieldBool(
                 'convert_timestamp',
-                descr='Convert MJD timestamp to readable datetime string',
+                descr='Also create datetime string version of MJD timestamp',
                 default=True
             ),
             field.FieldBool(
                 'store_statistics',
                 descr='Calculate and store statistics (min, max, mean) for numeric datasets',
-                default=True
-            ),
-            field.FieldBool(
-                'include_header_in_notes',
-                descr='Include file header information in dataset notes',
                 default=True
             ),
         ]
@@ -119,21 +113,25 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
         """Determine category and tags for a column."""
         tags = []
         
+        # Voltage detection
         if col_name.endswith('V'):
             tags.append('Voltages')
         
+        # Amperage detection (exclude detector names)
         if col_name.endswith('A') and not col_name.startswith('Det'):
             tags.append('Amperages')
         
+        # State values (detector states, lock status, etc)
         if col_name.startswith('Det'):
             tags.append('StateValues')
-        
-        if 'time' in col_name.lower() or 'utc' in col_name.lower():
-            tags.append('DateTime')
         
         if col_name in ['Lock', 'MIMIC State', 'LOCKED']:
             if 'StateValues' not in tags:
                 tags.append('StateValues')
+        
+        # DateTime detection
+        if 'time' in col_name.lower() or 'utc' in col_name.lower():
+            tags.append('DateTime')
         
         return tags
 
@@ -142,18 +140,9 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
         valid_data = data_array[~np.isnan(data_array)]
         
         if len(valid_data) == 0:
-            return {
-                'count': 0,
-                'valid_count': 0,
-                'nan_count': len(data_array),
-                'min': None,
-                'max': None,
-                'mean': None,
-                'std': None,
-            }
+            return None
         
         return {
-            'count': len(data_array),
             'valid_count': len(valid_data),
             'nan_count': np.sum(np.isnan(data_array)),
             'min': float(np.nanmin(data_array)),
@@ -162,44 +151,13 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
             'std': float(np.nanstd(data_array)),
         }
 
-    def create_dataset_note(self, original_name, tags, statistics=None, header_lines=None):
-        """Create informative notes for a dataset."""
-        notes = []
-        notes.append(f"Original column: {original_name}")
-        
-        if tags:
-            notes.append(f"Tags: {', '.join(tags)}")
-        
-        if statistics and statistics['valid_count'] > 0:
-            notes.append("")
-            notes.append("Statistics:")
-            notes.append(f"  Valid points: {statistics['valid_count']}")
-            notes.append(f"  Missing values: {statistics['nan_count']}")
-            notes.append(f"  Min: {statistics['min']:.6g}")
-            notes.append(f"  Max: {statistics['max']:.6g}")
-            notes.append(f"  Mean: {statistics['mean']:.6g}")
-            notes.append(f"  Std Dev: {statistics['std']:.6g}")
-        
-        if header_lines:
-            notes.append("")
-            notes.append("File Header:")
-            for header_line in header_lines[:3]:
-                if len(header_line) > 70:
-                    notes.append(f"  {header_line[:67]}...")
-                else:
-                    notes.append(f"  {header_line}")
-        
-        return "\n".join(notes)
-
     def doImport(self, params):
         """
         Import the RPi TKu telemetry file data.
         
-        params is ImportPluginParams with:
+        params contains:
         - filename: file path
         - field_results: dict with our custom field values
-        
-        prefix, suffix, tags are handled by Veusz in the return dataset objects.
         """
         try:
             # Get parameters from params object
@@ -212,7 +170,6 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
             field_results = params.field_results if hasattr(params, 'field_results') else {}
             convert_timestamp = field_results.get('convert_timestamp', True)
             store_statistics = field_results.get('store_statistics', True)
-            include_header = field_results.get('include_header_in_notes', True)
 
             # Read file with encoding detection
             lines = []
@@ -247,9 +204,6 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
             if not data_values:
                 raise ImportPluginException("No data rows found")
 
-            # Get filename base (without extension)
-            file_base = os.path.splitext(os.path.basename(filename))[0]
-            
             datasets = []
 
             # Create datasets
@@ -269,7 +223,24 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
                 # Get tags for this column
                 col_tags = self.categorize_column(col_name)
                 
-                # Handle timestamp conversion
+                # Create the main numeric dataset (always)
+                col_data_array = np.array(col_data)
+                
+                # Skip all-NaN columns
+                if np.all(np.isnan(col_data_array)):
+                    continue
+
+                # Create dataset with JUST column name (no file prefix)
+                dataset_name = col_name
+                dataset = ImportDataset1D(dataset_name, col_data_array)
+
+                # Apply tags
+                if col_tags:
+                    dataset.tags = col_tags
+
+                datasets.append(dataset)
+
+                # Also create datetime version if this is the timestamp column
                 if col_name.startswith('UTC Now minus UTC Trigger') and convert_timestamp and base_mjd_timestamp:
                     datetime_strings = []
                     for val in col_data:
@@ -279,43 +250,14 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
                         else:
                             datetime_strings.append("Invalid")
                     
-                    # Create dataset name from file and column
-                    dataset_name = f"{file_base}_{col_name}_DateTime"
-                    dataset = ImportDatasetText(dataset_name, datetime_strings)
+                    # Create datetime version with _DateTime suffix
+                    datetime_dataset_name = f"{col_name}_DateTime"
+                    datetime_dataset = ImportDatasetText(datetime_dataset_name, datetime_strings)
                     
                     if col_tags:
-                        dataset.tags = col_tags
+                        datetime_dataset.tags = col_tags
                     
-                    notes = self.create_dataset_note(col_name, col_tags, None, header_list if include_header else None)
-                    if notes:
-                        dataset.notes = notes
-                    
-                    datasets.append(dataset)
-                    
-                else:
-                    # Regular numeric dataset
-                    col_data_array = np.array(col_data)
-                    
-                    # Skip all-NaN columns
-                    if np.all(np.isnan(col_data_array)):
-                        continue
-
-                    dataset_name = f"{file_base}_{col_name}"
-                    dataset = ImportDataset1D(dataset_name, col_data_array)
-
-                    if col_tags:
-                        dataset.tags = col_tags
-                    
-                    # Calculate statistics if requested
-                    statistics = None
-                    if store_statistics:
-                        statistics = self.calculate_statistics(col_data_array)
-                    
-                    notes = self.create_dataset_note(col_name, col_tags, statistics, header_list if include_header else None)
-                    if notes:
-                        dataset.notes = notes
-                    
-                    datasets.append(dataset)
+                    datasets.append(datetime_dataset)
 
             if not datasets:
                 raise ImportPluginException("No valid data columns found")
