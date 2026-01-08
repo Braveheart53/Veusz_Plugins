@@ -1,16 +1,16 @@
 """
-RPi TKu Telemetry File Import Plugin for Veusz 4.2 - FINAL WORKING VERSION
+RPi TKu Telemetry File Import Plugin for Veusz 4.2 - MINIMAL WORKING VERSION
 
 This plugin imports RPi TKu telemetry data files (.dat) with:
 - Full metadata tracking
 - Statistical analysis engine
 - Intelligent dataset organization
 
-CRITICAL: Fixed doImport() signature to match Veusz 4.2 API exactly.
-The issue was that Veusz 4.2 passes prefix/suffix both as args and kwargs.
+CRITICAL: Removed getPreview() - using Veusz's built-in preview instead.
+This avoids the Veusz 4.2 API incompatibility completely.
 
 Created by: William W. Wallace
-Version: 1.6 (Veusz 4.2 Final Fix)
+Version: 1.5 (Minimal - No Preview Override)
 """
 
 import os
@@ -33,7 +33,7 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
     Enhanced import plugin for RPi TKu telemetry files (.dat).
     
     Provides comprehensive metadata tracking and statistical analysis.
-    Fully compatible with Veusz 4.2.
+    Uses Veusz's built-in preview mechanism.
     """
 
     # Plugin metadata
@@ -200,27 +200,24 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
         
         return "\n".join(notes)
 
-    def doImport(self, doc, filename, linked, encoding, prefix, suffix, tags, fields):
-        """
-        Import the RPi TKu telemetry file data.
-        
-        CRITICAL: Signature matches Veusz 4.2 API exactly.
-        Veusz passes prefix/suffix as positional args, so we accept them that way.
-        """
+    def doImport(self, params):
+        """Import the RPi TKu telemetry file data."""
         try:
-            if not filename or not os.path.exists(filename):
-                raise ImportPluginException(f"File not found: {filename}")
+            if not params.filename or not os.path.exists(params.filename):
+                raise ImportPluginException(f"File not found: {params.filename}")
 
-            # Get field values from fields dict (Veusz 4.2 passes them here)
-            convert_timestamp = fields.get('convert_timestamp', True)
-            store_statistics = fields.get('store_statistics', True)
-            include_header = fields.get('include_header_in_notes', True)
+            # Get field values
+            prefix = params.field_results.get('prefix', '')
+            suffix = params.field_results.get('suffix', '')
+            convert_timestamp = params.field_results.get('convert_timestamp', True)
+            store_statistics = params.field_results.get('store_statistics', True)
+            include_header = params.field_results.get('include_header_in_notes', True)
 
             # Read file with encoding detection
             lines = []
-            for enc in ['utf-8', 'cp1252', 'latin-1']:
+            for encoding in ['utf-8', 'cp1252', 'latin-1']:
                 try:
-                    with open(filename, 'r', encoding=enc) as f:
+                    with open(params.filename, 'r', encoding=encoding) as f:
                         lines = f.readlines()
                     break
                 except UnicodeDecodeError:
@@ -250,7 +247,7 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
                 raise ImportPluginException("No data rows found")
 
             # Get filename base
-            file_base = os.path.splitext(os.path.basename(filename))[0]
+            file_base = os.path.splitext(os.path.basename(params.filename))[0]
             
             def make_name(base_name):
                 return f"{prefix}{file_base}_{base_name}{suffix}"
@@ -329,6 +326,9 @@ class RPiTKuImportPluginEnhanced(ImportPlugin):
             raise
         except Exception as e:
             raise ImportPluginException(f"Import error: {str(e)}")
+
+    # NOTE: getPreview() is NOT overridden - Veusz uses its default preview mechanism
+    # This avoids the API incompatibility issue with Veusz 4.2
 
 
 # Register the plugin
