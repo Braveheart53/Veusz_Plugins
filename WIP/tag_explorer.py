@@ -1,6 +1,13 @@
 import veusz.plugins as plugins
+from veusz.plugins.datasetplugin import (
+    DatasetPlugin, DatasetPluginException, Dataset1D, datasetpluginregistry,
+    DatasetText
+    )
+# from veusz.plugins.datasetplugin import DatasetPluginHelper as helper
+from veusz.plugins import (field)
 
-class TagExplorerPlugin(plugins.DatasetPlugin):
+
+class TagExplorerPlugin(DatasetPlugin):
     """Plugin to explore and extract dataset tags."""
 
     menu = ('Tools', 'Tag Explorer')
@@ -63,4 +70,4 @@ class TagExplorerPlugin(plugins.DatasetPlugin):
             self.info_ds.update(data=[error_msg])
 
 # Register the plugin
-plugins.datasetpluginregistry.append(TagExplorerPlugin())
+datasetpluginregistry.append(TagExplorerPlugin())
