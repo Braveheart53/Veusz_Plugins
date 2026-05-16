@@ -26,6 +26,18 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 
 # %%%% 0.0.1: Initial plugin equivalent of Franks_AutoPlot.py
 Date: 2026-05-16
+# %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
+#             dialog and an ``emit_datestr`` boolean field so the same
+#             option is available from the Veusz Tools menu.
+Date: 2026-05-16
+# %%%% 0.0.3: NaN-preserving emission policy (inherits push_franks_to_veusz
+#             from Franks_AutoPlot.py): rows containing missing or non-
+#             numeric tokens are never dropped -- numeric NaN floats pass
+#             through Veusz's native NaN-aware numeric datasets, and the
+#             optional date-string text datasets use the sentinel string
+#             ``"NaN"`` for non-finite MJDs so all per-row arrays stay the
+#             same length and remain index-aligned.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
             entry, fields (max_threads, rss_mb, default_theme, preseed) and
@@ -67,7 +79,7 @@ from _autoplot_common import (                      # noqa: E402
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
     QProgressBar, QTextEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
-    run_in_threadpool,
+    run_in_threadpool, mjd_to_datestr,
 )
 try:
     from qtpy.QtWidgets import QDialog
@@ -124,6 +136,12 @@ class _PluginBatchDialog(QDialog):
         self.rss_spin.setValue(DEFAULT_RSS_HIGH_WATER_MB)
         form.addRow("RSS spill threshold (MiB):", self.rss_spin)
         root.addLayout(form)
+
+        self.datestr_cb = QCheckBox(
+            "Generate MJD -> date strings (YYYY-MM-DD_HH:MM:SS) datasets"
+        )
+        self.datestr_cb.setChecked(False)
+        root.addWidget(self.datestr_cb)
 
         self.log = QTextEdit()
         self.log.setReadOnly(True)
@@ -202,6 +220,10 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Optional: ;-separated file paths "
                                 "(leave blank to pick interactively)",
                           default=""),
+            vzp.FieldBool("emit_datestr",
+                          descr="Also create MJD -> date-string datasets "
+                                "(YYYY-MM-DD_HH:MM:SS)",
+                          default=False),
         ]
 
     # ------------------------------------------------------------------
@@ -228,6 +250,7 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                 dlg.file_list.addItem(os.path.basename(p))
         dlg.thread_spin.setValue(int(fields.get("max_threads") or MAX_THREADS))
         dlg.rss_spin.setValue(int(fields.get("rss_mb") or DEFAULT_RSS_HIGH_WATER_MB))
+        dlg.datestr_cb.setChecked(bool(fields.get("emit_datestr") or False))
 
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -255,12 +278,14 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         results = run_in_threadpool(work,
                                     max_workers=int(dlg.thread_spin.value()),
                                     progress_cb=_cb)
+        emit_datestr = bool(dlg.datestr_cb.isChecked())
         dlg.append_log("Pushing datasets into Veusz document...")
         for path, data in results.items():
             if isinstance(data, Exception):
                 dlg.append_log("  ERROR %s: %s" % (path, data))
                 continue
-            push_franks_to_veusz(interface, data, log_cb=dlg.append_log)
+            push_franks_to_veusz(interface, data, log_cb=dlg.append_log,
+                                 emit_datestr=emit_datestr)
             app.processEvents()
         dlg.append_log("Done.")
         mon.stop()

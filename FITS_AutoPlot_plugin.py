@@ -26,6 +26,16 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 
 # %%%% 0.0.1: Initial plugin equivalent of FITS_AutoPlot.py
 Date: 2026-05-16
+# %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
+#             dialog and an ``emit_datestr`` boolean field so the same
+#             option is available from the Veusz Tools menu.
+Date: 2026-05-16
+# %%%% 0.0.3: NaN-preserving emission policy (inherits push_to_veusz from
+#             FITS_AutoPlot.py): numeric NaN floats are kept verbatim in
+#             Veusz numeric datasets; non-finite MJDs become the sentinel
+#             string ``"NaN"`` in the date-string text datasets so row
+#             counts always match their numeric companions.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,
@@ -73,7 +83,7 @@ from FITS_AutoPlot import (                       # noqa: E402
 )
 from _autoplot_common import (                    # noqa: E402
     QApplication, QFileDialog, QMessageBox,
-    QSpinBox, QComboBox, QFormLayout,
+    QSpinBox, QComboBox, QCheckBox, QFormLayout,
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
     QProgressBar, QTextEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
@@ -143,6 +153,12 @@ class _PluginBatchDialog(QDialog):
         self.rss_spin.setValue(DEFAULT_RSS_HIGH_WATER_MB)
         form.addRow("RSS spill threshold (MiB):", self.rss_spin)
         root.addLayout(form)
+
+        self.datestr_cb = QCheckBox(
+            "Generate MJD -> date strings (YYYY-MM-DD_HH:MM:SS) datasets"
+        )
+        self.datestr_cb.setChecked(False)
+        root.addWidget(self.datestr_cb)
 
         self.log = QTextEdit()
         self.log.setReadOnly(True)
@@ -223,6 +239,10 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Optional: ;-separated FITS file paths "
                                 "(leave blank to pick interactively)",
                           default=""),
+            vzp.FieldBool("emit_datestr",
+                          descr="Also create MJD -> date-string datasets "
+                                "(YYYY-MM-DD_HH:MM:SS)",
+                          default=False),
         ]
 
     # ------------------------------------------------------------------
@@ -251,6 +271,7 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                 dlg.file_list.addItem(os.path.basename(p))
         dlg.thread_spin.setValue(int(fields.get("max_threads") or MAX_THREADS))
         dlg.rss_spin.setValue(int(fields.get("rss_mb") or DEFAULT_RSS_HIGH_WATER_MB))
+        dlg.datestr_cb.setChecked(bool(fields.get("emit_datestr") or False))
 
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -285,13 +306,15 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         results = run_in_threadpool(work,
                                     max_workers=int(dlg.thread_spin.value()),
                                     progress_cb=_cb)
+        emit_datestr = bool(dlg.datestr_cb.isChecked())
         dlg.append_log("Pushing datasets into Veusz document...")
         for path, data in results.items():
             if isinstance(data, Exception):
                 dlg.append_log("  ERROR %s: %s" % (path, data))
                 continue
             push_to_veusz(interface, path, data, backend,
-                          log_cb=dlg.append_log)
+                          log_cb=dlg.append_log,
+                          emit_datestr=emit_datestr)
             app.processEvents()
         dlg.append_log("Done.")
         mon.stop()
