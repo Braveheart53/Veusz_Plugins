@@ -72,6 +72,11 @@ Date: 2026-05-16
 # %%%% 0.0.12: Inherits the combined-in-time overlay semantics from
 #              FITS_AutoPlot.py v0.0.12 -- plugin code unchanged because
 #              build_unit_overlay_pages does the heavy lifting.
+#              Channel-tag row model: the plugin's file_records
+#              accumulator now also forwards ``tag_columns`` and
+#              ``tag_groups`` from FITSProcessor.read so the overlay
+#              builder can split each numeric column into one trace
+#              per unique (CHANNELA, CHANNELB) tuple.
 Date: 2026-05-16
 # %%%% 0.0.11: Plugin-side support for datetime-duplicate plots (mirrors
 #              FITS_AutoPlot.py v0.0.11).  _PluginBatchDialog gained a
@@ -532,12 +537,17 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                     dlg.append_log("  push_to_veusz failed for %s: %s"
                                    % (path, exc))
                 else:
+                    # v0.0.12 channel-tag: carry tag_columns/tag_groups so
+                    # build_unit_overlay_pages can split each numeric
+                    # column into one trace per unique tag-tuple.
                     file_records.append({
                         "base": safe_dsname(data.get("base_name") or
                                             os.path.basename(path)),
                         "columns": data.get("columns") or {},
                         "units": data.get("units") or {},
                         "sort_key": data.get("sort_key"),
+                        "tag_columns": data.get("tag_columns") or {},
+                        "tag_groups": data.get("tag_groups") or {},
                     })
                 dlg.parse_progress.setValue(idx)
                 app.processEvents()
