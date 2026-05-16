@@ -69,6 +69,15 @@ Date: 2026-05-16
 Date: 2026-05-16
 # Date: 2026-05-16
 # Date: 2026-05-16
+# %%%% 0.0.13: Inherits identity-stable trace styling + datetime-duplicate
+#              hardening from FITS_AutoPlot.py.  No plugin-side code
+#              changes are required: push_to_veusz, build_unit_overlay_
+#              pages, and the page builders are shared with the
+#              standalone GUI, so the new apply_trace_style() wiring and
+#              set_datetime_dataset() coercion both take effect inside
+#              the plugin entry point automatically.  Header bumped for
+#              version visibility in the Veusz Tools menu.
+Date: 2026-05-16
 # %%%% 0.0.12: Inherits the combined-in-time overlay semantics from
 #              FITS_AutoPlot.py v0.0.12 -- plugin code unchanged because
 #              build_unit_overlay_pages does the heavy lifting.
