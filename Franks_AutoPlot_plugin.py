@@ -38,6 +38,12 @@ Date: 2026-05-16
 #             ``"NaN"`` for non-finite MJDs so all per-row arrays stay the
 #             same length and remain index-aligned.
 Date: 2026-05-16
+# %%%% 0.0.5: The plugin's apply() loop already calls processEvents()
+#             between every push, so the GUI-responsiveness fix shipped
+#             in Franks_AutoPlot.py 0.0.5 is inherited automatically.
+#             Version bumped here to keep the four files version-aligned.
+#             (No 0.0.4: aligned with the FITS_AutoPlot.py version stream.)
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
             entry, fields (max_threads, rss_mb, default_theme, preseed) and

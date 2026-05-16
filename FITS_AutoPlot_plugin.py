@@ -45,6 +45,14 @@ Date: 2026-05-16
 #             suppression context manager so the Veusz log stays clean
 #             during batch runs of 1PPS-delta files.
 Date: 2026-05-16
+# %%%% 0.0.5: Inherits the empty-images early-exit from FITS_AutoPlot.py
+#             0.0.5: push_to_veusz() and _build_pages() now skip the image-
+#             push and image-page-creation loops explicitly when
+#             ``data['images']`` is empty (the normal case for NRAO
+#             OnePpsDeltas-only files), with an explicit log line so the
+#             user knows the skip was intentional and the plugin is not
+#             hung.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,
