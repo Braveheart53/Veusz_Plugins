@@ -58,6 +58,15 @@ Date: 2026-05-16
 #             navigable in Spyder's Outline / cell navigator.  Pure
 #             cosmetic change -- no runtime behaviour modified.
 Date: 2026-05-16
+# %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
+#             'Parsing/pushing' file-level bar and a 'Current file -
+#             columns' per-file column bar that ticks per Veusz dataset
+#             as push_to_veusz() pours that file into the active document.
+#             Also added a 'Skip image HDUs' checkbox to the modal dialog
+#             and a new ``skip_images`` boolean field, threaded through
+#             FITSProcessor() and push_to_veusz() so the plugin honours
+#             the same speed knob as the standalone window.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,
@@ -193,13 +202,28 @@ class _PluginBatchDialog(QDialog):
         self.datestr_cb.setChecked(False)
         root.addWidget(self.datestr_cb)
 
+        self.skip_images_cb = QCheckBox(
+            "Skip image HDUs (faster -- recommended for NRAO 1PPS files)"
+        )
+        self.skip_images_cb.setChecked(False)
+        root.addWidget(self.skip_images_cb)
+
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setMinimumHeight(140)
         root.addWidget(self.log)
+        # Reading-stage bar (file-level, ticked from worker threads)
         self.progress = QProgressBar()
         self.progress.setVisible(False)
         root.addWidget(self.progress)
+        # Parse / push-stage bar (file-level, ticked on the GUI thread)
+        self.parse_progress = QProgressBar()
+        self.parse_progress.setVisible(False)
+        root.addWidget(self.parse_progress)
+        # Per-column bar for the currently-pushing file (GUI thread)
+        self.column_progress = QProgressBar()
+        self.column_progress.setVisible(False)
+        root.addWidget(self.column_progress)
 
         # Action buttons
         arow = QHBoxLayout()
@@ -276,6 +300,10 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Also create MJD -> date-string datasets "
                                 "(YYYY-MM-DD_HH:MM:SS)",
                           default=False),
+            vzp.FieldBool("skip_images",
+                          descr="Skip image HDUs (faster -- recommended "
+                                "for NRAO 1PPS files)",
+                          default=False),
         ]
 
     # ------------------------------------------------------------------
@@ -305,6 +333,7 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.thread_spin.setValue(int(fields.get("max_threads") or MAX_THREADS))
         dlg.rss_spin.setValue(int(fields.get("rss_mb") or DEFAULT_RSS_HIGH_WATER_MB))
         dlg.datestr_cb.setChecked(bool(fields.get("emit_datestr") or False))
+        dlg.skip_images_cb.setChecked(bool(fields.get("skip_images") or False))
 
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -321,19 +350,33 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
             "RSS over high-water mark (%.1f MiB) -- spilling." % r))
         mon.start()
 
-        proc = FITSProcessor(backend, cache)
+        skip_images = bool(dlg.skip_images_cb.isChecked())
+        proc = FITSProcessor(backend, cache, skip_images=skip_images)
         # Sequentially run-in-threadpool inside this plugin call: we use
         # threads (not processes) so the plugin remains within the Veusz
         # interpreter and can write to ``interface`` directly afterwards.
         work = [(p, proc.read, (p,)) for p in dlg.selected_files]
+        n_files = len(work)
         dlg.progress.setVisible(True)
-        dlg.progress.setRange(0, len(work))
+        dlg.progress.setRange(0, n_files)
+        dlg.parse_progress.setVisible(True)
+        dlg.parse_progress.setRange(0, n_files)
+        dlg.parse_progress.setValue(0)
+        dlg.column_progress.setVisible(True)
+        dlg.column_progress.setRange(0, 1)
+        dlg.column_progress.setValue(0)
         progress_state = {"done": 0}
 
         def _cb(done, total, key):
             progress_state["done"] = done
             dlg.progress.setValue(done)
             dlg.append_log("read [%d/%d] %s" % (done, total, os.path.basename(key)))
+            app.processEvents()
+
+        def _col_cb(done, total_ops):
+            if dlg.column_progress.maximum() != max(1, total_ops):
+                dlg.column_progress.setRange(0, max(1, total_ops))
+            dlg.column_progress.setValue(done)
             app.processEvents()
 
         # Belt-and-suspenders: suppress NRAO FITS unit warnings around the
@@ -347,14 +390,27 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                                         progress_cb=_cb)
             emit_datestr = bool(dlg.datestr_cb.isChecked())
             dlg.append_log("Pushing datasets into Veusz document...")
-            for path, data in results.items():
+            for idx, (path, data) in enumerate(results.items(), start=1):
                 if isinstance(data, Exception):
                     dlg.append_log("  ERROR %s: %s" % (path, data))
+                    dlg.parse_progress.setValue(idx)
+                    app.processEvents()
                     continue
+                # Pre-size the column bar from this file's read-pass output.
+                n_cols = len(data.get("columns") or {})
+                n_imgs = 0 if skip_images else len(data.get("images") or {})
+                dlg.column_progress.setRange(0, max(1, n_cols + n_imgs))
+                dlg.column_progress.setValue(0)
                 push_to_veusz(interface, path, data, backend,
                               log_cb=dlg.append_log,
-                              emit_datestr=emit_datestr)
+                              emit_datestr=emit_datestr,
+                              column_cb=_col_cb,
+                              skip_images=skip_images)
+                dlg.parse_progress.setValue(idx)
                 app.processEvents()
+        dlg.progress.setVisible(False)
+        dlg.parse_progress.setVisible(False)
+        dlg.column_progress.setVisible(False)
         dlg.append_log("Done.")
         mon.stop()
         cache.cleanup()

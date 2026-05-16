@@ -48,6 +48,12 @@ Date: 2026-05-16
 #             navigated and run cell-by-cell in Spyder's Outline view.
 #             Cosmetic only -- no behavior change.
 Date: 2026-05-16
+# %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
+#             'Parsing/pushing' file-level bar and a 'Current file -
+#             columns' bar ticked per source column as push_franks_to_veusz()
+#             pours that file into the active document.  No skip-images
+#             knob here (Franks files have no image HDUs).
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
             entry, fields (max_threads, rss_mb, default_theme, preseed) and
@@ -161,9 +167,18 @@ class _PluginBatchDialog(QDialog):
         self.log.setReadOnly(True)
         self.log.setMinimumHeight(140)
         root.addWidget(self.log)
+        # Reading-stage bar (file-level, ticked from worker threads)
         self.progress = QProgressBar()
         self.progress.setVisible(False)
         root.addWidget(self.progress)
+        # Parse / push-stage bar (file-level, ticked on the GUI thread)
+        self.parse_progress = QProgressBar()
+        self.parse_progress.setVisible(False)
+        root.addWidget(self.parse_progress)
+        # Per-column bar for the currently-pushing file (GUI thread)
+        self.column_progress = QProgressBar()
+        self.column_progress.setVisible(False)
+        root.addWidget(self.column_progress)
 
         arow = QHBoxLayout()
         self.process_btn = QPushButton("Process Files")
@@ -281,12 +296,25 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         mon.start()
 
         work = [(p, parse_franks_file, (p, cache)) for p in dlg.selected_files]
+        n_files = len(work)
         dlg.progress.setVisible(True)
-        dlg.progress.setRange(0, len(work))
+        dlg.progress.setRange(0, n_files)
+        dlg.parse_progress.setVisible(True)
+        dlg.parse_progress.setRange(0, n_files)
+        dlg.parse_progress.setValue(0)
+        dlg.column_progress.setVisible(True)
+        dlg.column_progress.setRange(0, 1)
+        dlg.column_progress.setValue(0)
 
         def _cb(done, total, key):
             dlg.progress.setValue(done)
             dlg.append_log("parsed [%d/%d] %s" % (done, total, os.path.basename(key)))
+            app.processEvents()
+
+        def _col_cb(done, total_ops):
+            if dlg.column_progress.maximum() != max(1, total_ops):
+                dlg.column_progress.setRange(0, max(1, total_ops))
+            dlg.column_progress.setValue(done)
             app.processEvents()
 
         results = run_in_threadpool(work,
@@ -294,13 +322,23 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                                     progress_cb=_cb)
         emit_datestr = bool(dlg.datestr_cb.isChecked())
         dlg.append_log("Pushing datasets into Veusz document...")
-        for path, data in results.items():
+        for idx, (path, data) in enumerate(results.items(), start=1):
             if isinstance(data, Exception):
                 dlg.append_log("  ERROR %s: %s" % (path, data))
+                dlg.parse_progress.setValue(idx)
+                app.processEvents()
                 continue
+            n_cols = len(data.get("columns") or {})
+            dlg.column_progress.setRange(0, max(1, n_cols))
+            dlg.column_progress.setValue(0)
             push_franks_to_veusz(interface, data, log_cb=dlg.append_log,
-                                 emit_datestr=emit_datestr)
+                                 emit_datestr=emit_datestr,
+                                 column_cb=_col_cb)
+            dlg.parse_progress.setValue(idx)
             app.processEvents()
+        dlg.progress.setVisible(False)
+        dlg.parse_progress.setVisible(False)
+        dlg.column_progress.setVisible(False)
         dlg.append_log("Done.")
         mon.stop()
         cache.cleanup()
