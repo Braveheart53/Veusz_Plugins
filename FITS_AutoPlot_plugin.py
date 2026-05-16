@@ -67,6 +67,17 @@ Date: 2026-05-16
 #             FITSProcessor() and push_to_veusz() so the plugin honours
 #             the same speed knob as the standalone window.
 Date: 2026-05-16
+# Date: 2026-05-16
+# %%%% 0.0.9: Plugin-side support for broken-axis + unit-overlay (mirrors
+#             FITS_AutoPlot.py v0.0.9).  _PluginBatchDialog now exposes
+#             ``Gap K (× median Δt)``, ``Absolute gap``, and
+#             ``Combined plots only`` controls; ``apply()`` threads
+#             ``plot_individual``, ``gap_k``, ``gap_absolute`` through
+#             every ``push_to_veusz()`` call, accumulates ``file_records``
+#             across the batch, and post-builds unit-overlay pages by
+#             calling ``FITS_AutoPlot.build_unit_overlay_pages`` on the
+#             host ``interface`` doc.
+Date: 2026-05-16
 # %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
 #             suite (FITS_AutoPlot.py / Franks_AutoPlot.py / _autoplot_common.py)
 #             which gained 'Open in Veusz...' buttons + a parallelization
@@ -128,13 +139,17 @@ from FITS_AutoPlot import (                       # noqa: E402
     MAX_THREADS, DEFAULT_RSS_HIGH_WATER_MB,
     FITSProcessor, push_to_veusz,
 )
+# v0.0.9: pull in the overlay post-pass helper from the shared module.
+from FITS_AutoPlot import (                       # noqa: E402
+    build_unit_overlay_pages,
+)
 from _autoplot_common import (                    # noqa: E402
     QApplication, QFileDialog, QMessageBox,
-    QSpinBox, QComboBox, QCheckBox, QFormLayout,
+    QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QFormLayout,
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
     QProgressBar, QTextEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
-    run_in_threadpool,
+    run_in_threadpool, safe_dsname,
     register_nrao_fits_units, suppress_fits_unit_warnings,
 )
 
@@ -219,6 +234,29 @@ class _PluginBatchDialog(QDialog):
         )
         self.skip_images_cb.setChecked(False)
         root.addWidget(self.skip_images_cb)
+
+        # --- Broken-axis / overlay controls (v0.0.9) ----------------------
+        form2 = QFormLayout()
+        self.gap_k_spin = QDoubleSpinBox()
+        self.gap_k_spin.setRange(1.0, 1000.0)
+        self.gap_k_spin.setSingleStep(1.0)
+        self.gap_k_spin.setDecimals(2)
+        self.gap_k_spin.setValue(10.0)
+        form2.addRow("Gap K (× median Δt):", self.gap_k_spin)
+
+        self.gap_abs_spin = QDoubleSpinBox()
+        self.gap_abs_spin.setRange(0.0, 1e12)
+        self.gap_abs_spin.setDecimals(6)
+        self.gap_abs_spin.setSingleStep(1.0)
+        self.gap_abs_spin.setValue(0.0)
+        form2.addRow("Absolute gap (units of x; 0=auto):", self.gap_abs_spin)
+        root.addLayout(form2)
+
+        self.combined_only_cb = QCheckBox(
+            "Combined (overlay) plots only -- skip per-file pages"
+        )
+        self.combined_only_cb.setChecked(False)
+        root.addWidget(self.combined_only_cb)
 
         self.log = QTextEdit()
         self.log.setReadOnly(True)
@@ -346,6 +384,16 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.rss_spin.setValue(int(fields.get("rss_mb") or DEFAULT_RSS_HIGH_WATER_MB))
         dlg.datestr_cb.setChecked(bool(fields.get("emit_datestr") or False))
         dlg.skip_images_cb.setChecked(bool(fields.get("skip_images") or False))
+        # v0.0.9 pre-seed knobs (optional)
+        try:
+            dlg.gap_k_spin.setValue(float(fields.get("gap_k") or 10.0))
+        except Exception:
+            pass
+        try:
+            dlg.gap_abs_spin.setValue(float(fields.get("gap_absolute") or 0.0))
+        except Exception:
+            pass
+        dlg.combined_only_cb.setChecked(bool(fields.get("combined_only") or False))
 
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -396,6 +444,11 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         # / QTable.read internally, but this outer context ensures that any
         # downstream astropy code paths (e.g. push_to_veusz fallbacks) also
         # stay quiet during the Veusz batch run.
+        # v0.0.9: thread broken-axis / overlay knobs through every push
+        gap_k = float(dlg.gap_k_spin.value())
+        gap_absolute = float(dlg.gap_abs_spin.value())
+        plot_individual = not bool(dlg.combined_only_cb.isChecked())
+        file_records = []  # accumulator for the unit-overlay post-pass
         with suppress_fits_unit_warnings():
             results = run_in_threadpool(work,
                                         max_workers=int(dlg.thread_spin.value()),
@@ -413,13 +466,40 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                 n_imgs = 0 if skip_images else len(data.get("images") or {})
                 dlg.column_progress.setRange(0, max(1, n_cols + n_imgs))
                 dlg.column_progress.setValue(0)
-                push_to_veusz(interface, path, data, backend,
-                              log_cb=dlg.append_log,
-                              emit_datestr=emit_datestr,
-                              column_cb=_col_cb,
-                              skip_images=skip_images)
+                try:
+                    push_to_veusz(interface, path, data, backend,
+                                  log_cb=dlg.append_log,
+                                  emit_datestr=emit_datestr,
+                                  column_cb=_col_cb,
+                                  skip_images=skip_images,
+                                  plot_individual=plot_individual,
+                                  gap_k=gap_k,
+                                  gap_absolute=gap_absolute)
+                except Exception as exc:
+                    dlg.append_log("  push_to_veusz failed for %s: %s"
+                                   % (path, exc))
+                else:
+                    file_records.append({
+                        "base": safe_dsname(data.get("base_name") or
+                                            os.path.basename(path)),
+                        "columns": data.get("columns") or {},
+                        "units": data.get("units") or {},
+                        "sort_key": data.get("sort_key"),
+                    })
                 dlg.parse_progress.setValue(idx)
                 app.processEvents()
+            # Build cross-file unit-overlay pages on the host document.
+            if file_records:
+                try:
+                    build_unit_overlay_pages(
+                        interface, file_records,
+                        gap_k=gap_k, gap_absolute=gap_absolute,
+                        log_cb=dlg.append_log,
+                    )
+                except Exception as exc:
+                    dlg.append_log(
+                        "  build_unit_overlay_pages failed: %s" % exc
+                    )
         dlg.progress.setVisible(False)
         dlg.parse_progress.setVisible(False)
         dlg.column_progress.setVisible(False)

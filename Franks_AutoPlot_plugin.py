@@ -54,6 +54,18 @@ Date: 2026-05-16
 #             pours that file into the active document.  No skip-images
 #             knob here (Franks files have no image HDUs).
 Date: 2026-05-16
+# Date: 2026-05-16
+# %%%% 0.0.9: Plugin-side support for broken-axis + column-name overlay
+#             (mirrors Franks_AutoPlot.py v0.0.9).  _PluginBatchDialog
+#             now exposes ``Gap K (× median Δt)``, ``Absolute gap``, and
+#             ``Combined plots only`` controls; ``apply()`` threads
+#             ``plot_individual``, ``gap_k``, ``gap_absolute`` through
+#             every ``push_franks_to_veusz()`` call, accumulates
+#             ``file_records`` across the batch, and post-builds
+#             column-name overlay pages by calling
+#             ``Franks_AutoPlot.build_unit_overlay_pages_franks`` on the
+#             host ``interface`` doc.
+Date: 2026-05-16
 # %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
 #             suite which gained 'Open in Veusz...' buttons + a
 #             parallelization audit (MAX_THREADS doubled; parse_franks_file()
@@ -103,14 +115,15 @@ import veusz.plugins as vzp
 from Franks_AutoPlot import (                       # noqa: E402
     MAX_THREADS, DEFAULT_RSS_HIGH_WATER_MB,
     parse_franks_file, push_franks_to_veusz,
+    build_unit_overlay_pages_franks,
 )
 from _autoplot_common import (                      # noqa: E402
     QApplication, QFileDialog, QMessageBox,
-    QSpinBox, QComboBox, QCheckBox, QFormLayout,
+    QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QFormLayout,
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
     QProgressBar, QTextEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
-    run_in_threadpool, mjd_to_datestr,
+    run_in_threadpool, safe_dsname, mjd_to_datestr,
 )
 try:
     from qtpy.QtWidgets import QDialog
@@ -173,6 +186,29 @@ class _PluginBatchDialog(QDialog):
         )
         self.datestr_cb.setChecked(False)
         root.addWidget(self.datestr_cb)
+
+        # --- Broken-axis / overlay controls (v0.0.9) ----------------------
+        form2 = QFormLayout()
+        self.gap_k_spin = QDoubleSpinBox()
+        self.gap_k_spin.setRange(1.0, 1000.0)
+        self.gap_k_spin.setSingleStep(1.0)
+        self.gap_k_spin.setDecimals(2)
+        self.gap_k_spin.setValue(10.0)
+        form2.addRow("Gap K (× median Δt):", self.gap_k_spin)
+
+        self.gap_abs_spin = QDoubleSpinBox()
+        self.gap_abs_spin.setRange(0.0, 1e12)
+        self.gap_abs_spin.setDecimals(6)
+        self.gap_abs_spin.setSingleStep(1.0)
+        self.gap_abs_spin.setValue(0.0)
+        form2.addRow("Absolute gap (MJD units; 0=auto):", self.gap_abs_spin)
+        root.addLayout(form2)
+
+        self.combined_only_cb = QCheckBox(
+            "Combined (overlay) plots only -- skip per-file pages"
+        )
+        self.combined_only_cb.setChecked(False)
+        root.addWidget(self.combined_only_cb)
 
         self.log = QTextEdit()
         self.log.setReadOnly(True)
@@ -291,6 +327,16 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.thread_spin.setValue(int(fields.get("max_threads") or MAX_THREADS))
         dlg.rss_spin.setValue(int(fields.get("rss_mb") or DEFAULT_RSS_HIGH_WATER_MB))
         dlg.datestr_cb.setChecked(bool(fields.get("emit_datestr") or False))
+        # v0.0.9 pre-seed knobs (optional)
+        try:
+            dlg.gap_k_spin.setValue(float(fields.get("gap_k") or 10.0))
+        except Exception:
+            pass
+        try:
+            dlg.gap_abs_spin.setValue(float(fields.get("gap_absolute") or 0.0))
+        except Exception:
+            pass
+        dlg.combined_only_cb.setChecked(bool(fields.get("combined_only") or False))
 
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -328,6 +374,11 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
             dlg.column_progress.setValue(done)
             app.processEvents()
 
+        # v0.0.9: thread broken-axis / overlay knobs through every push
+        gap_k = float(dlg.gap_k_spin.value())
+        gap_absolute = float(dlg.gap_abs_spin.value())
+        plot_individual = not bool(dlg.combined_only_cb.isChecked())
+        file_records = []  # accumulator for the overlay post-pass
         results = run_in_threadpool(work,
                                     max_workers=int(dlg.thread_spin.value()),
                                     progress_cb=_cb)
@@ -342,11 +393,36 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
             n_cols = len(data.get("columns") or {})
             dlg.column_progress.setRange(0, max(1, n_cols))
             dlg.column_progress.setValue(0)
-            push_franks_to_veusz(interface, data, log_cb=dlg.append_log,
-                                 emit_datestr=emit_datestr,
-                                 column_cb=_col_cb)
+            try:
+                push_franks_to_veusz(interface, data, log_cb=dlg.append_log,
+                                     emit_datestr=emit_datestr,
+                                     column_cb=_col_cb,
+                                     plot_individual=plot_individual,
+                                     gap_k=gap_k,
+                                     gap_absolute=gap_absolute)
+            except Exception as exc:
+                dlg.append_log("  push failed for %s: %s" % (path, exc))
+            else:
+                file_records.append({
+                    "base": data.get("base_name") or
+                            safe_dsname(os.path.basename(path)),
+                    "columns": data.get("columns") or {},
+                    "sort_key": data.get("sort_key"),
+                })
             dlg.parse_progress.setValue(idx)
             app.processEvents()
+        # Build cross-file column-name overlay pages on the host document.
+        if file_records:
+            try:
+                build_unit_overlay_pages_franks(
+                    interface, file_records,
+                    gap_k=gap_k, gap_absolute=gap_absolute,
+                    log_cb=dlg.append_log,
+                )
+            except Exception as exc:
+                dlg.append_log(
+                    "  build_unit_overlay_pages_franks failed: %s" % exc
+                )
         dlg.progress.setVisible(False)
         dlg.parse_progress.setVisible(False)
         dlg.column_progress.setVisible(False)
