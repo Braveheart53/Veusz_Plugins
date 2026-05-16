@@ -67,6 +67,18 @@ Date: 2026-05-16
 #             FITSProcessor() and push_to_veusz() so the plugin honours
 #             the same speed knob as the standalone window.
 Date: 2026-05-16
+# %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
+#             suite (FITS_AutoPlot.py / Franks_AutoPlot.py / _autoplot_common.py)
+#             which gained 'Open in Veusz...' buttons + a parallelization
+#             audit (MAX_THREADS doubled in standalone tools).
+#             No 'Open in Veusz' button is added to this plugin dialog: the
+#             plugin already runs *inside* the live Veusz application, so
+#             the freshly pushed datasets are immediately visible in the
+#             host document -- there is nothing external to launch.
+#             The plugin transparently picks up the MAX_THREADS bump and
+#             the vectorized Franks parser through its imports from the
+#             standalone modules; no code changes are required here.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,

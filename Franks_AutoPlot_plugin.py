@@ -54,6 +54,17 @@ Date: 2026-05-16
 #             pours that file into the active document.  No skip-images
 #             knob here (Franks files have no image HDUs).
 Date: 2026-05-16
+# %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
+#             suite which gained 'Open in Veusz...' buttons + a
+#             parallelization audit (MAX_THREADS doubled; parse_franks_file()
+#             vectorized).
+#             No 'Open in Veusz' button is added to this plugin dialog: the
+#             plugin already runs *inside* the live Veusz application, so
+#             pushed datasets are immediately visible in the host document.
+#             The plugin transparently picks up the MAX_THREADS bump and
+#             the vectorized parse_franks_file() through its imports from
+#             Franks_AutoPlot.py; no code changes are required here.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
             entry, fields (max_threads, rss_mb, default_theme, preseed) and
