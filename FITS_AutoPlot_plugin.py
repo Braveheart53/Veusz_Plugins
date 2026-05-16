@@ -36,6 +36,15 @@ Date: 2026-05-16
 #             string ``"NaN"`` in the date-string text datasets so row
 #             counts always match their numeric companions.
 Date: 2026-05-16
+# %%%% 0.0.4: FITS-unit-warning suppression.  The plugin already inherits
+#             register_nrao_fits_units() and the suppress_fits_unit_warnings()
+#             context manager via FITSProcessor (imported from
+#             FITS_AutoPlot.py).  As a belt-and-suspenders measure we
+#             explicitly call register_nrao_fits_units() at plugin module
+#             load and wrap the entire apply() FITS-reading loop in the
+#             suppression context manager so the Veusz log stays clean
+#             during batch runs of 1PPS-delta files.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,
@@ -88,7 +97,14 @@ from _autoplot_common import (                    # noqa: E402
     QProgressBar, QTextEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
     run_in_threadpool,
+    register_nrao_fits_units, suppress_fits_unit_warnings,
 )
+
+# Idempotent: ensures the NRAO custom FITS unit aliases ('none',
+# 'NanoSeconds') are registered with astropy.units even if this plugin
+# happens to be loaded before FITS_AutoPlot.py would otherwise run its
+# module-level registration call.
+register_nrao_fits_units()
 # qtpy's QDialog
 try:
     from qtpy.QtWidgets import QDialog
@@ -303,19 +319,25 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
             dlg.append_log("read [%d/%d] %s" % (done, total, os.path.basename(key)))
             app.processEvents()
 
-        results = run_in_threadpool(work,
-                                    max_workers=int(dlg.thread_spin.value()),
-                                    progress_cb=_cb)
-        emit_datestr = bool(dlg.datestr_cb.isChecked())
-        dlg.append_log("Pushing datasets into Veusz document...")
-        for path, data in results.items():
-            if isinstance(data, Exception):
-                dlg.append_log("  ERROR %s: %s" % (path, data))
-                continue
-            push_to_veusz(interface, path, data, backend,
-                          log_cb=dlg.append_log,
-                          emit_datestr=emit_datestr)
-            app.processEvents()
+        # Belt-and-suspenders: suppress NRAO FITS unit warnings around the
+        # entire batch read + push.  FITSProcessor already wraps fits.open
+        # / QTable.read internally, but this outer context ensures that any
+        # downstream astropy code paths (e.g. push_to_veusz fallbacks) also
+        # stay quiet during the Veusz batch run.
+        with suppress_fits_unit_warnings():
+            results = run_in_threadpool(work,
+                                        max_workers=int(dlg.thread_spin.value()),
+                                        progress_cb=_cb)
+            emit_datestr = bool(dlg.datestr_cb.isChecked())
+            dlg.append_log("Pushing datasets into Veusz document...")
+            for path, data in results.items():
+                if isinstance(data, Exception):
+                    dlg.append_log("  ERROR %s: %s" % (path, data))
+                    continue
+                push_to_veusz(interface, path, data, backend,
+                              log_cb=dlg.append_log,
+                              emit_datestr=emit_datestr)
+                app.processEvents()
         dlg.append_log("Done.")
         mon.stop()
         cache.cleanup()
