@@ -43,6 +43,10 @@ Date: 2026-05-16
 #             in Franks_AutoPlot.py 0.0.5 is inherited automatically.
 #             Version bumped here to keep the four files version-aligned.
 #             (No 0.0.4: aligned with the FITS_AutoPlot.py version stream.)
+# %%%% 0.0.6: Added Spyder IDE cell markers (# %% / # %%%) at all major
+#             section banners and import subsections so the file can be
+#             navigated and run cell-by-cell in Spyder's Outline view.
+#             Cosmetic only -- no behavior change.
 Date: 2026-05-16
 # %%%%% Function Descriptions
         FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
@@ -62,8 +66,10 @@ Date: 2026-05-16
         tagged with the file's base name plus 'raw' / 'sorted'.
 =============================================================================
 """
+# %% Imports
 from __future__ import annotations
 
+# %%% IMPORTS - Standard library
 import os
 import sys
 import traceback
@@ -73,8 +79,10 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+# %%% IMPORTS - Veusz plugin API
 import veusz.plugins as vzp
 
+# %%% IMPORTS - Sibling modules / shared GUI helpers
 from Franks_AutoPlot import (                       # noqa: E402
     MAX_THREADS, DEFAULT_RSS_HIGH_WATER_MB,
     parse_franks_file, push_franks_to_veusz,
@@ -94,7 +102,7 @@ except ImportError:  # pragma: no cover
 
 
 # ============================================================================
-# Modal dialog (mirror of the standalone GUI)
+# %% MODAL DIALOG (mirror of the standalone GUI)
 # ============================================================================
 class _PluginBatchDialog(QDialog):
     """Modal qtpy dialog used by the plugin entry point."""
@@ -194,7 +202,7 @@ class _PluginBatchDialog(QDialog):
 
 
 # ============================================================================
-# THE PLUGIN
+# %% THE PLUGIN
 # ============================================================================
 class FranksAutoPlotPlugin(vzp.ToolsPlugin):
     """Veusz Tools plugin: batch process FranksProcessed files into the current document."""
@@ -299,6 +307,6 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
 
 
 # ============================================================================
-# REGISTER
+# %% REGISTER
 # ============================================================================
 vzp.toolspluginregistry.append(FranksAutoPlotPlugin)

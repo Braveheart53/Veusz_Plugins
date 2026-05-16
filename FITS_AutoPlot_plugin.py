@@ -53,6 +53,11 @@ Date: 2026-05-16
 #             user knows the skip was intentional and the plugin is not
 #             hung.
 Date: 2026-05-16
+# %%%% 0.0.6: Added Spyder-style cell markers (``# %% TITLE`` / ``# %%%``)
+#             on the existing dashed banner blocks so the file is
+#             navigable in Spyder's Outline / cell navigator.  Pure
+#             cosmetic change -- no runtime behaviour modified.
+Date: 2026-05-16
 # %%%%% Function Descriptions
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,
@@ -79,8 +84,10 @@ Date: 2026-05-16
         Veusz window.
 =============================================================================
 """
+# %% Imports
 from __future__ import annotations
 
+# %%% IMPORTS - Standard library
 import os
 import sys
 import traceback
@@ -91,8 +98,10 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+# %%% IMPORTS - Veusz plugin API
 import veusz.plugins as vzp
 
+# %%% IMPORTS - shared AutoPlot infrastructure
 # Reuse the standalone implementation
 from FITS_AutoPlot import (                       # noqa: E402
     MAX_THREADS, DEFAULT_RSS_HIGH_WATER_MB,
@@ -121,7 +130,7 @@ except ImportError:  # pragma: no cover
 
 
 # ============================================================================
-# A modal qtpy dialog mirroring the standalone GUI layout
+# %% A modal qtpy dialog mirroring the standalone GUI layout
 # ============================================================================
 class _PluginBatchDialog(QDialog):
     """Modal version of the AutoPlot main window for in-plugin use."""
@@ -231,7 +240,7 @@ class _PluginBatchDialog(QDialog):
 
 
 # ============================================================================
-# THE PLUGIN
+# %% THE PLUGIN
 # ============================================================================
 class FITSAutoPlotPlugin(vzp.ToolsPlugin):
     """Veusz Tools plugin: batch process NRAO FITS files into the current document."""
@@ -352,6 +361,6 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
 
 
 # ============================================================================
-# REGISTER WITH VEUSZ
+# %% REGISTER WITH VEUSZ
 # ============================================================================
 vzp.toolspluginregistry.append(FITSAutoPlotPlugin)
