@@ -68,6 +68,24 @@ Date: 2026-05-16
 #             the same speed knob as the standalone window.
 Date: 2026-05-16
 # Date: 2026-05-16
+# Date: 2026-05-16
+# %%%% 0.0.12: Inherits the combined-in-time overlay semantics from
+#              FITS_AutoPlot.py v0.0.12 -- plugin code unchanged because
+#              build_unit_overlay_pages does the heavy lifting.
+Date: 2026-05-16
+# %%%% 0.0.11: Plugin-side support for datetime-duplicate plots (mirrors
+#              FITS_AutoPlot.py v0.0.11).  _PluginBatchDialog gained a
+#              'Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)'
+#              checkbox; ``apply()`` threads the resulting
+#              ``datetime_duplicate`` boolean through every push_to_veusz()
+#              call and through ``build_unit_overlay_pages``.
+Date: 2026-05-16
+# %%%% 0.0.10: Plugin-side support for the optional GPU acceleration
+#              (mirrors FITS_AutoPlot.py v0.0.10).  _PluginBatchDialog
+#              now exposes a 'Use GPU acceleration (CuPy)' checkbox that
+#              is disabled when CuPy is not importable on the host;
+#              ``apply()`` toggles the process-wide flag via
+#              ``enable_gpu()`` before pushing.
 # %%%% 0.0.9: Plugin-side support for broken-axis + unit-overlay (mirrors
 #             FITS_AutoPlot.py v0.0.9).  _PluginBatchDialog now exposes
 #             ``Gap K (× median Δt)``, ``Absolute gap``, and
@@ -150,6 +168,7 @@ from _autoplot_common import (                    # noqa: E402
     QProgressBar, QTextEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
     run_in_threadpool, safe_dsname,
+    is_gpu_available, enable_gpu, gpu_backend_name,
     register_nrao_fits_units, suppress_fits_unit_warnings,
 )
 
@@ -258,6 +277,20 @@ class _PluginBatchDialog(QDialog):
         self.combined_only_cb.setChecked(False)
         root.addWidget(self.combined_only_cb)
 
+        # --- Datetime-duplicate plots (v0.0.11) ---------------------------
+        self.datetime_dup_cb = QCheckBox(
+            "Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)"
+        )
+        self.datetime_dup_cb.setChecked(False)
+        root.addWidget(self.datetime_dup_cb)
+
+        # --- GPU acceleration (CuPy, optional) (v0.0.10) ------------------
+        self.gpu_cb = QCheckBox("Use GPU acceleration (CuPy) for large sorts")
+        self.gpu_cb.setChecked(False)
+        self.gpu_cb.setEnabled(is_gpu_available())
+        self.gpu_cb.setToolTip(gpu_backend_name())
+        root.addWidget(self.gpu_cb)
+
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setMinimumHeight(140)
@@ -354,6 +387,13 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Skip image HDUs (faster -- recommended "
                                 "for NRAO 1PPS files)",
                           default=False),
+            # v0.0.11: pre-seed the datetime-duplicate checkbox from a
+            # plugin field so saved-document plugin invocations can opt in
+            # without having to re-tick the dialog checkbox manually.
+            vzp.FieldBool("datetime_duplicate",
+                          descr="Duplicate plots with datetime X axis "
+                                "(YYYY-MM-DD HH:MM:SS)",
+                          default=False),
         ]
 
     # ------------------------------------------------------------------
@@ -394,6 +434,13 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         except Exception:
             pass
         dlg.combined_only_cb.setChecked(bool(fields.get("combined_only") or False))
+        # v0.0.11: pre-seed the datetime-duplicate checkbox
+        dlg.datetime_dup_cb.setChecked(
+            bool(fields.get("datetime_duplicate") or False)
+        )
+        # v0.0.10: optional GPU pre-seed
+        dlg.gpu_cb.setChecked(bool(fields.get("use_gpu") or False)
+                              and dlg.gpu_cb.isEnabled())
 
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -448,6 +495,11 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         gap_k = float(dlg.gap_k_spin.value())
         gap_absolute = float(dlg.gap_abs_spin.value())
         plot_individual = not bool(dlg.combined_only_cb.isChecked())
+        # v0.0.11: datetime-duplicate toggle
+        datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
+        # v0.0.10: drive the process-wide GPU flag from the checkbox
+        enable_gpu(dlg.gpu_cb.isChecked() and dlg.gpu_cb.isEnabled())
+        dlg.append_log("GPU backend: %s" % gpu_backend_name())
         file_records = []  # accumulator for the unit-overlay post-pass
         with suppress_fits_unit_warnings():
             results = run_in_threadpool(work,
@@ -474,7 +526,8 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                                   skip_images=skip_images,
                                   plot_individual=plot_individual,
                                   gap_k=gap_k,
-                                  gap_absolute=gap_absolute)
+                                  gap_absolute=gap_absolute,
+                                  datetime_duplicate=datetime_duplicate)
                 except Exception as exc:
                     dlg.append_log("  push_to_veusz failed for %s: %s"
                                    % (path, exc))
@@ -495,6 +548,7 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                         interface, file_records,
                         gap_k=gap_k, gap_absolute=gap_absolute,
                         log_cb=dlg.append_log,
+                        datetime_duplicate=datetime_duplicate,
                     )
                 except Exception as exc:
                     dlg.append_log(
