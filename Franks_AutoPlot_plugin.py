@@ -24,57 +24,54 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
-# %%%% 0.0.1: Initial plugin equivalent of Franks_AutoPlot.py
-Date: 2026-05-16
-# %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
-#             dialog and an ``emit_datestr`` boolean field so the same
-#             option is available from the Veusz Tools menu.
-Date: 2026-05-16
-# %%%% 0.0.3: NaN-preserving emission policy (inherits push_franks_to_veusz
-#             from Franks_AutoPlot.py): rows containing missing or non-
-#             numeric tokens are never dropped -- numeric NaN floats pass
-#             through Veusz's native NaN-aware numeric datasets, and the
-#             optional date-string text datasets use the sentinel string
-#             ``"NaN"`` for non-finite MJDs so all per-row arrays stay the
-#             same length and remain index-aligned.
-Date: 2026-05-16
-# %%%% 0.0.5: The plugin's apply() loop already calls processEvents()
-#             between every push, so the GUI-responsiveness fix shipped
-#             in Franks_AutoPlot.py 0.0.5 is inherited automatically.
-#             Version bumped here to keep the four files version-aligned.
-#             (No 0.0.4: aligned with the FITS_AutoPlot.py version stream.)
-# %%%% 0.0.6: Added Spyder IDE cell markers (# %% / # %%%) at all major
-#             section banners and import subsections so the file can be
-#             navigated and run cell-by-cell in Spyder's Outline view.
-#             Cosmetic only -- no behavior change.
-Date: 2026-05-16
-# %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
-#             'Parsing/pushing' file-level bar and a 'Current file -
-#             columns' bar ticked per source column as push_franks_to_veusz()
-#             pours that file into the active document.  No skip-images
-#             knob here (Franks files have no image HDUs).
-Date: 2026-05-16
+# %%%% 0.0.14: Datetime via xy.labels per-point text labels.
 # Date: 2026-05-16
+#                * Mirrors Franks_AutoPlot.py v0.0.14: the dt-duplicate
+#                  pages now bind a per-point text dataset to
+#                  xy.labels.val (rendering one date string per data
+#                  point) instead of using a Veusz datetime x axis
+#                  (which is broken on Veusz 3.4 internals).
+#                * Adds plugin field ``datetime_full_labels`` and a
+#                  matching dialog checkbox; threads the flag through
+#                  ``push_franks_to_veusz`` and
+#                  ``build_unit_overlay_pages_franks``.
+#                * No SetDataDateTime calls in the dt path.
+
+# %%%% 0.0.13: Inherits identity-stable trace styling + datetime-duplicate
 # Date: 2026-05-16
+#              hardening from Franks_AutoPlot.py.  No plugin-side code
+#              changes are required: push_franks_to_veusz,
+#              build_unit_overlay_pages_franks, and the page builders are
+#              shared with the standalone GUI, so the new
+#              apply_trace_style() wiring and set_datetime_dataset()
+#              coercion both take effect inside the plugin entry point
+#              automatically.  Header bumped for version visibility in
+#              the Veusz Tools menu.
+
 # %%%% 0.0.12: Inherits combined-in-time overlay semantics from
+# Date: 2026-05-16
 #              Franks_AutoPlot.py v0.0.12 -- plugin unchanged because
 #              build_unit_overlay_pages_franks does the work.
-Date: 2026-05-16
+
 # %%%% 0.0.11: Plugin-side support for datetime-duplicate plots (mirrors
+# Date: 2026-05-16
 #              Franks_AutoPlot.py v0.0.11).  _PluginBatchDialog gained a
 #              'Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)'
 #              checkbox; ``apply()`` threads the resulting
 #              ``datetime_duplicate`` boolean through every
 #              push_franks_to_veusz() call and through
 #              build_unit_overlay_pages_franks.
-Date: 2026-05-16
+
 # %%%% 0.0.10: Plugin-side support for the optional GPU acceleration
+# Date: 2026-05-16
 #              (mirrors Franks_AutoPlot.py v0.0.10).  _PluginBatchDialog
 #              now exposes a 'Use GPU acceleration (CuPy)' checkbox
 #              that is disabled when CuPy is not importable; ``apply()``
 #              toggles the process-wide flag via ``enable_gpu()`` before
 #              pushing.
+
 # %%%% 0.0.9: Plugin-side support for broken-axis + column-name overlay
+# Date: 2026-05-16
 #             (mirrors Franks_AutoPlot.py v0.0.9).  _PluginBatchDialog
 #             now exposes ``Gap K (× median Δt)``, ``Absolute gap``, and
 #             ``Combined plots only`` controls; ``apply()`` threads
@@ -84,8 +81,9 @@ Date: 2026-05-16
 #             column-name overlay pages by calling
 #             ``Franks_AutoPlot.build_unit_overlay_pages_franks`` on the
 #             host ``interface`` doc.
-Date: 2026-05-16
+
 # %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
+# Date: 2026-05-16
 #             suite which gained 'Open in Veusz...' buttons + a
 #             parallelization audit (MAX_THREADS doubled; parse_franks_file()
 #             vectorized).
@@ -95,8 +93,45 @@ Date: 2026-05-16
 #             The plugin transparently picks up the MAX_THREADS bump and
 #             the vectorized parse_franks_file() through its imports from
 #             Franks_AutoPlot.py; no code changes are required here.
-Date: 2026-05-16
 # %%%%% Function Descriptions
+
+# %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
+# Date: 2026-05-16
+#             'Parsing/pushing' file-level bar and a 'Current file -
+#             columns' bar ticked per source column as push_franks_to_veusz()
+#             pours that file into the active document.  No skip-images
+#             knob here (Franks files have no image HDUs).
+
+# %%%% 0.0.6: Added Spyder IDE cell markers (# %% / # %%%) at all major
+# Date: 2026-05-16
+#             section banners and import subsections so the file can be
+#             navigated and run cell-by-cell in Spyder's Outline view.
+#             Cosmetic only -- no behavior change.
+
+# %%%% 0.0.5: The plugin's apply() loop already calls processEvents()
+# Date: 2026-05-16
+#             between every push, so the GUI-responsiveness fix shipped
+#             in Franks_AutoPlot.py 0.0.5 is inherited automatically.
+#             Version bumped here to keep the four files version-aligned.
+#             (No 0.0.4: aligned with the FITS_AutoPlot.py version stream.)
+
+# %%%% 0.0.3: NaN-preserving emission policy (inherits push_franks_to_veusz
+# Date: 2026-05-16
+#             from Franks_AutoPlot.py): rows containing missing or non-
+#             numeric tokens are never dropped -- numeric NaN floats pass
+#             through Veusz's native NaN-aware numeric datasets, and the
+#             optional date-string text datasets use the sentinel string
+#             ``"NaN"`` for non-finite MJDs so all per-row arrays stay the
+#             same length and remain index-aligned.
+
+# %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
+# Date: 2026-05-16
+#             dialog and an ``emit_datestr`` boolean field so the same
+#             option is available from the Veusz Tools menu.
+
+# %%%% 0.0.1: Initial plugin equivalent of Franks_AutoPlot.py
+# Date: 2026-05-16
+
         FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
             entry, fields (max_threads, rss_mb, default_theme, preseed) and
             the apply() entry point.
@@ -231,11 +266,26 @@ class _PluginBatchDialog(QDialog):
         root.addWidget(self.combined_only_cb)
 
         # --- Datetime-duplicate plots (v0.0.11) ---------------------------
+        # v0.0.11: datetime-duplicate toggle.
         self.datetime_dup_cb = QCheckBox(
             "Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)"
         )
         self.datetime_dup_cb.setChecked(False)
         root.addWidget(self.datetime_dup_cb)
+
+        # --- v0.0.14: full vs sparse per-point datetime labels ------------
+        self.full_labels_cb = QCheckBox(
+            "Use full per-point date labels on datetime pages "
+            "(one label per data point -- can be visually crowded)"
+        )
+        self.full_labels_cb.setChecked(False)
+        self.full_labels_cb.setToolTip(
+            "When checked, every data point on a datetime-duplicate "
+            "page is annotated with its own YYYY-MM-DD HH:MM:SS "
+            "label.  When unchecked (default), only ~10 evenly spaced "
+            "anchor points are labeled."
+        )
+        root.addWidget(self.full_labels_cb)
 
         # --- GPU acceleration (CuPy, optional) (v0.0.10) ------------------
         self.gpu_cb = QCheckBox("Use GPU acceleration (CuPy) for large sorts")
@@ -335,6 +385,12 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                                 "(YYYY-MM-DD_HH:MM:SS)",
                           default=False),
             # v0.0.11: pre-seed the datetime-duplicate checkbox
+            # v0.0.14: full vs sparse per-point datetime labels.
+            vzp.FieldBool("datetime_full_labels",
+                          descr="Use full per-point date labels on "
+                                "datetime pages (one label per data "
+                                "point -- can be visually crowded)",
+                          default=False),
             vzp.FieldBool("datetime_duplicate",
                           descr="Duplicate plots with datetime X axis "
                                 "(YYYY-MM-DD HH:MM:SS)",
@@ -379,6 +435,10 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         # v0.0.11: pre-seed the datetime-duplicate checkbox
         dlg.datetime_dup_cb.setChecked(
             bool(fields.get("datetime_duplicate") or False)
+        )
+        # v0.0.14: pre-seed the per-point full-labels checkbox.
+        dlg.full_labels_cb.setChecked(
+            bool(fields.get("datetime_full_labels") or False)
         )
         # v0.0.10: optional GPU pre-seed
         dlg.gpu_cb.setChecked(bool(fields.get("use_gpu") or False)
@@ -426,6 +486,8 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         plot_individual = not bool(dlg.combined_only_cb.isChecked())
         # v0.0.11: datetime-duplicate toggle
         datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
+        # v0.0.14: full vs sparse per-point date-label rendering.
+        datetime_full_labels = bool(dlg.full_labels_cb.isChecked())
         # v0.0.10: drive the process-wide GPU flag from the checkbox
         enable_gpu(dlg.gpu_cb.isChecked() and dlg.gpu_cb.isEnabled())
         dlg.append_log("GPU backend: %s" % gpu_backend_name())
@@ -445,13 +507,15 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
             dlg.column_progress.setRange(0, max(1, n_cols))
             dlg.column_progress.setValue(0)
             try:
-                push_franks_to_veusz(interface, data, log_cb=dlg.append_log,
+                push_franks_to_veusz(interface, data,
+                                     log_cb=dlg.append_log,
                                      emit_datestr=emit_datestr,
                                      column_cb=_col_cb,
                                      plot_individual=plot_individual,
                                      gap_k=gap_k,
                                      gap_absolute=gap_absolute,
-                                     datetime_duplicate=datetime_duplicate)
+                                     datetime_duplicate=datetime_duplicate,
+                                     datetime_full_labels=datetime_full_labels)
             except Exception as exc:
                 dlg.append_log("  push failed for %s: %s" % (path, exc))
             else:
@@ -471,6 +535,7 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                     gap_k=gap_k, gap_absolute=gap_absolute,
                     log_cb=dlg.append_log,
                     datetime_duplicate=datetime_duplicate,
+                    datetime_full_labels=datetime_full_labels,
                 )
             except Exception as exc:
                 dlg.append_log(

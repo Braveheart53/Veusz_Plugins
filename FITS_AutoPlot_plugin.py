@@ -24,52 +24,20 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
-# %%%% 0.0.1: Initial plugin equivalent of FITS_AutoPlot.py
-Date: 2026-05-16
-# %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
-#             dialog and an ``emit_datestr`` boolean field so the same
-#             option is available from the Veusz Tools menu.
-Date: 2026-05-16
-# %%%% 0.0.3: NaN-preserving emission policy (inherits push_to_veusz from
-#             FITS_AutoPlot.py): numeric NaN floats are kept verbatim in
-#             Veusz numeric datasets; non-finite MJDs become the sentinel
-#             string ``"NaN"`` in the date-string text datasets so row
-#             counts always match their numeric companions.
-Date: 2026-05-16
-# %%%% 0.0.4: FITS-unit-warning suppression.  The plugin already inherits
-#             register_nrao_fits_units() and the suppress_fits_unit_warnings()
-#             context manager via FITSProcessor (imported from
-#             FITS_AutoPlot.py).  As a belt-and-suspenders measure we
-#             explicitly call register_nrao_fits_units() at plugin module
-#             load and wrap the entire apply() FITS-reading loop in the
-#             suppression context manager so the Veusz log stays clean
-#             during batch runs of 1PPS-delta files.
-Date: 2026-05-16
-# %%%% 0.0.5: Inherits the empty-images early-exit from FITS_AutoPlot.py
-#             0.0.5: push_to_veusz() and _build_pages() now skip the image-
-#             push and image-page-creation loops explicitly when
-#             ``data['images']`` is empty (the normal case for NRAO
-#             OnePpsDeltas-only files), with an explicit log line so the
-#             user knows the skip was intentional and the plugin is not
-#             hung.
-Date: 2026-05-16
-# %%%% 0.0.6: Added Spyder-style cell markers (``# %% TITLE`` / ``# %%%``)
-#             on the existing dashed banner blocks so the file is
-#             navigable in Spyder's Outline / cell navigator.  Pure
-#             cosmetic change -- no runtime behaviour modified.
-Date: 2026-05-16
-# %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
-#             'Parsing/pushing' file-level bar and a 'Current file -
-#             columns' per-file column bar that ticks per Veusz dataset
-#             as push_to_veusz() pours that file into the active document.
-#             Also added a 'Skip image HDUs' checkbox to the modal dialog
-#             and a new ``skip_images`` boolean field, threaded through
-#             FITSProcessor() and push_to_veusz() so the plugin honours
-#             the same speed knob as the standalone window.
-Date: 2026-05-16
+# %%%% 0.0.14: Datetime via xy.labels per-point text labels.
 # Date: 2026-05-16
-# Date: 2026-05-16
+#                * Mirrors FITS_AutoPlot.py v0.0.14: the dt-duplicate
+#                  pages now bind a per-point text dataset to
+#                  xy.labels.val (rendering one date string per data
+#                  point) instead of using a Veusz datetime x axis
+#                  (which is broken on Veusz 3.4 internals).
+#                * Adds plugin field ``datetime_full_labels`` and a
+#                  matching dialog checkbox; threads the flag through
+#                  ``push_to_veusz`` and ``build_unit_overlay_pages``.
+#                * No SetDataDateTime calls in the dt path.
+
 # %%%% 0.0.13: Inherits identity-stable trace styling + datetime-duplicate
+# Date: 2026-05-16
 #              hardening from FITS_AutoPlot.py.  No plugin-side code
 #              changes are required: push_to_veusz, build_unit_overlay_
 #              pages, and the page builders are shared with the
@@ -77,8 +45,9 @@ Date: 2026-05-16
 #              set_datetime_dataset() coercion both take effect inside
 #              the plugin entry point automatically.  Header bumped for
 #              version visibility in the Veusz Tools menu.
-Date: 2026-05-16
+
 # %%%% 0.0.12: Inherits the combined-in-time overlay semantics from
+# Date: 2026-05-16
 #              FITS_AutoPlot.py v0.0.12 -- plugin code unchanged because
 #              build_unit_overlay_pages does the heavy lifting.
 #              Channel-tag row model: the plugin's file_records
@@ -86,21 +55,25 @@ Date: 2026-05-16
 #              ``tag_groups`` from FITSProcessor.read so the overlay
 #              builder can split each numeric column into one trace
 #              per unique (CHANNELA, CHANNELB) tuple.
-Date: 2026-05-16
+
 # %%%% 0.0.11: Plugin-side support for datetime-duplicate plots (mirrors
+# Date: 2026-05-16
 #              FITS_AutoPlot.py v0.0.11).  _PluginBatchDialog gained a
 #              'Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)'
 #              checkbox; ``apply()`` threads the resulting
 #              ``datetime_duplicate`` boolean through every push_to_veusz()
 #              call and through ``build_unit_overlay_pages``.
-Date: 2026-05-16
+
 # %%%% 0.0.10: Plugin-side support for the optional GPU acceleration
+# Date: 2026-05-16
 #              (mirrors FITS_AutoPlot.py v0.0.10).  _PluginBatchDialog
 #              now exposes a 'Use GPU acceleration (CuPy)' checkbox that
 #              is disabled when CuPy is not importable on the host;
 #              ``apply()`` toggles the process-wide flag via
 #              ``enable_gpu()`` before pushing.
+
 # %%%% 0.0.9: Plugin-side support for broken-axis + unit-overlay (mirrors
+# Date: 2026-05-16
 #             FITS_AutoPlot.py v0.0.9).  _PluginBatchDialog now exposes
 #             ``Gap K (× median Δt)``, ``Absolute gap``, and
 #             ``Combined plots only`` controls; ``apply()`` threads
@@ -109,8 +82,9 @@ Date: 2026-05-16
 #             across the batch, and post-builds unit-overlay pages by
 #             calling ``FITS_AutoPlot.build_unit_overlay_pages`` on the
 #             host ``interface`` doc.
-Date: 2026-05-16
+
 # %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
+# Date: 2026-05-16
 #             suite (FITS_AutoPlot.py / Franks_AutoPlot.py / _autoplot_common.py)
 #             which gained 'Open in Veusz...' buttons + a parallelization
 #             audit (MAX_THREADS doubled in standalone tools).
@@ -121,8 +95,58 @@ Date: 2026-05-16
 #             The plugin transparently picks up the MAX_THREADS bump and
 #             the vectorized Franks parser through its imports from the
 #             standalone modules; no code changes are required here.
-Date: 2026-05-16
 # %%%%% Function Descriptions
+
+# %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
+# Date: 2026-05-16
+#             'Parsing/pushing' file-level bar and a 'Current file -
+#             columns' per-file column bar that ticks per Veusz dataset
+#             as push_to_veusz() pours that file into the active document.
+#             Also added a 'Skip image HDUs' checkbox to the modal dialog
+#             and a new ``skip_images`` boolean field, threaded through
+#             FITSProcessor() and push_to_veusz() so the plugin honours
+#             the same speed knob as the standalone window.
+
+# %%%% 0.0.6: Added Spyder-style cell markers (``# %% TITLE`` / ``# %%%``)
+# Date: 2026-05-16
+#             on the existing dashed banner blocks so the file is
+#             navigable in Spyder's Outline / cell navigator.  Pure
+#             cosmetic change -- no runtime behaviour modified.
+
+# %%%% 0.0.5: Inherits the empty-images early-exit from FITS_AutoPlot.py
+# Date: 2026-05-16
+#             0.0.5: push_to_veusz() and _build_pages() now skip the image-
+#             push and image-page-creation loops explicitly when
+#             ``data['images']`` is empty (the normal case for NRAO
+#             OnePpsDeltas-only files), with an explicit log line so the
+#             user knows the skip was intentional and the plugin is not
+#             hung.
+
+# %%%% 0.0.4: FITS-unit-warning suppression.  The plugin already inherits
+# Date: 2026-05-16
+#             register_nrao_fits_units() and the suppress_fits_unit_warnings()
+#             context manager via FITSProcessor (imported from
+#             FITS_AutoPlot.py).  As a belt-and-suspenders measure we
+#             explicitly call register_nrao_fits_units() at plugin module
+#             load and wrap the entire apply() FITS-reading loop in the
+#             suppression context manager so the Veusz log stays clean
+#             during batch runs of 1PPS-delta files.
+
+# %%%% 0.0.3: NaN-preserving emission policy (inherits push_to_veusz from
+# Date: 2026-05-16
+#             FITS_AutoPlot.py): numeric NaN floats are kept verbatim in
+#             Veusz numeric datasets; non-finite MJDs become the sentinel
+#             string ``"NaN"`` in the date-string text datasets so row
+#             counts always match their numeric companions.
+
+# %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
+# Date: 2026-05-16
+#             dialog and an ``emit_datestr`` boolean field so the same
+#             option is available from the Veusz Tools menu.
+
+# %%%% 0.0.1: Initial plugin equivalent of FITS_AutoPlot.py
+# Date: 2026-05-16
+
         FITSAutoPlotPlugin: Veusz ToolsPlugin subclass with menu entry,
             description, field definitions (file list, backend, threads,
             RSS spill, theme) and the apply() entry-point.
@@ -298,6 +322,20 @@ class _PluginBatchDialog(QDialog):
         self.datetime_dup_cb.setChecked(False)
         root.addWidget(self.datetime_dup_cb)
 
+        # --- v0.0.14: full vs sparse per-point datetime labels ------------
+        self.full_labels_cb = QCheckBox(
+            "Use full per-point date labels on datetime pages "
+            "(one label per data point -- can be visually crowded)"
+        )
+        self.full_labels_cb.setChecked(False)
+        self.full_labels_cb.setToolTip(
+            "When checked, every data point on a datetime-duplicate "
+            "page is annotated with its own YYYY-MM-DD HH:MM:SS "
+            "label.  When unchecked (default), only ~10 evenly spaced "
+            "anchor points are labeled."
+        )
+        root.addWidget(self.full_labels_cb)
+
         # --- GPU acceleration (CuPy, optional) (v0.0.10) ------------------
         self.gpu_cb = QCheckBox("Use GPU acceleration (CuPy) for large sorts")
         self.gpu_cb.setChecked(False)
@@ -408,6 +446,12 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Duplicate plots with datetime X axis "
                                 "(YYYY-MM-DD HH:MM:SS)",
                           default=False),
+            # v0.0.14: full vs sparse per-point datetime labels.
+            vzp.FieldBool("datetime_full_labels",
+                          descr="Use full per-point date labels on "
+                                "datetime pages (one label per data "
+                                "point -- can be visually crowded)",
+                          default=False),
         ]
 
     # ------------------------------------------------------------------
@@ -451,6 +495,10 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         # v0.0.11: pre-seed the datetime-duplicate checkbox
         dlg.datetime_dup_cb.setChecked(
             bool(fields.get("datetime_duplicate") or False)
+        )
+        # v0.0.14: pre-seed the per-point full-labels checkbox.
+        dlg.full_labels_cb.setChecked(
+            bool(fields.get("datetime_full_labels") or False)
         )
         # v0.0.10: optional GPU pre-seed
         dlg.gpu_cb.setChecked(bool(fields.get("use_gpu") or False)
@@ -511,6 +559,8 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         plot_individual = not bool(dlg.combined_only_cb.isChecked())
         # v0.0.11: datetime-duplicate toggle
         datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
+        # v0.0.14: full vs sparse per-point date-label rendering.
+        datetime_full_labels = bool(dlg.full_labels_cb.isChecked())
         # v0.0.10: drive the process-wide GPU flag from the checkbox
         enable_gpu(dlg.gpu_cb.isChecked() and dlg.gpu_cb.isEnabled())
         dlg.append_log("GPU backend: %s" % gpu_backend_name())
@@ -541,7 +591,8 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                                   plot_individual=plot_individual,
                                   gap_k=gap_k,
                                   gap_absolute=gap_absolute,
-                                  datetime_duplicate=datetime_duplicate)
+                                  datetime_duplicate=datetime_duplicate,
+                                  datetime_full_labels=datetime_full_labels)
                 except Exception as exc:
                     dlg.append_log("  push_to_veusz failed for %s: %s"
                                    % (path, exc))
@@ -568,6 +619,7 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                         gap_k=gap_k, gap_absolute=gap_absolute,
                         log_cb=dlg.append_log,
                         datetime_duplicate=datetime_duplicate,
+                        datetime_full_labels=datetime_full_labels,
                     )
                 except Exception as exc:
                     dlg.append_log(
