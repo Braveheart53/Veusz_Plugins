@@ -24,6 +24,23 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.16: dt_labels page mode='datetime' + broken-axis parity.
+# Date: 2026-05-16
+#              * No plugin-field changes vs. v0.0.15.  The plugin
+#                surface is unchanged; the engine (Franks_AutoPlot.py
+#                + _autoplot_common.py) does all the new work: emits
+#                a numeric Veusz-datetime-seconds dataset alongside
+#                the text-x dataset, binds the dt_labels page to it,
+#                sets the x axis to mode='datetime', and adds
+#                broken-axis parity with the seconds-axis dt page.
+#              * Header bumped to 0.0.16 only so the plugin and
+#                engine version strings stay in lock-step in the
+#                Veusz Tools menu.
+#              * GUI: "Absolute gap (MJD units; 0=auto)" spinbox is
+#                renamed "Manual gap (hours; 0=auto)" and the value
+#                is divided by 24 before being passed to the engine,
+#                so MJD-axis time gaps are entered in hours.
+#
 # %%%% 0.0.15: Density-pct date labels + text-x dt_labels page variant.
 # Date: 2026-05-16
 #                * Plugin-side equivalent of the Franks_AutoPlot.py
@@ -291,7 +308,8 @@ class _PluginBatchDialog(QDialog):
         self.gap_abs_spin.setDecimals(6)
         self.gap_abs_spin.setSingleStep(1.0)
         self.gap_abs_spin.setValue(0.0)
-        form2.addRow("Absolute gap (MJD units; 0=auto):", self.gap_abs_spin)
+        # v0.0.16: spinbox is in HOURS; converted to MJD-days when read.
+        form2.addRow("Manual gap (hours; 0=auto):", self.gap_abs_spin)
         root.addLayout(form2)
 
         self.combined_only_cb = QCheckBox(
@@ -578,7 +596,9 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
 
         # v0.0.9: thread broken-axis / overlay knobs through every push
         gap_k = float(dlg.gap_k_spin.value())
-        gap_absolute = float(dlg.gap_abs_spin.value())
+        # v0.0.16: spinbox is in HOURS -- convert to MJD-days.
+        gap_absolute_hours = float(dlg.gap_abs_spin.value())
+        gap_absolute = gap_absolute_hours / 24.0
         plot_individual = not bool(dlg.combined_only_cb.isChecked())
         # v0.0.11: datetime-duplicate toggle
         datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
