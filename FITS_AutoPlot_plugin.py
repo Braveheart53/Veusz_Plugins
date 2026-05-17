@@ -24,6 +24,19 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.17: Sentinel channel-tag dt-overlay filter (no field changes).
+# Date: 2026-05-16
+#              Plugin inherits the v0.0.17 FITS-side fix via
+#              ``build_unit_overlay_pages``: dt overlay emission now
+#              skips placeholder channel-tag tuples like
+#              ``("dataset", "dataset")`` that previously manufactured
+#              spurious broken-axis breaks on the combined-MJD detector.
+#              No new plugin fields; the minimized-save UI lives on the
+#              standalone GUI only (the plugin operates inside an open
+#              Veusz document and the user saves it via Veusz itself).
+#              Revision history kept in DESCENDING semantic-version
+#              order.
+#
 # %%%% 0.0.16: dt_labels page mode='datetime' + broken-axis parity.
 # Date: 2026-05-16
 #                * No plugin-field changes vs. v0.0.15.  The plugin

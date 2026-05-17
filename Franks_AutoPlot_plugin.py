@@ -24,6 +24,17 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.17: No plugin-side changes (engine bump only).
+# Date: 2026-05-16
+#              The standalone Franks_AutoPlot GUI gained the v0.0.17
+#              minimized-Veusz-save checkboxes.  This plugin operates
+#              inside an open Veusz document (saves are user-driven via
+#              Veusz itself) so it does NOT receive those fields.
+#              The FITS-side sentinel channel-tag dt-overlay filter does
+#              not apply to Franks (single-trace overlay).
+#              Revision history kept in DESCENDING semantic-version
+#              order.
+#
 # %%%% 0.0.16: dt_labels page mode='datetime' + broken-axis parity.
 # Date: 2026-05-16
 #              * No plugin-field changes vs. v0.0.15.  The plugin
