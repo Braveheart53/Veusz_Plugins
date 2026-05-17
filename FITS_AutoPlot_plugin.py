@@ -24,6 +24,40 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.15: Density-pct date labels + text-x dt_labels page variant.
+# Date: 2026-05-16
+#                * Plugin-side equivalent of the FITS_AutoPlot.py
+#                  v0.0.15 change.  The legacy ``datetime_full_labels``
+#                  boolean field is REPLACED by:
+#                    - ``datetime_label_density_pct`` (FieldInt 0..100,
+#                      default 10): controls how many evenly-spaced
+#                      anchor labels are emitted on the numeric-x dt
+#                      page.  0 = no labels, 100 = one label per finite
+#                      data point.
+#                    - ``datetime_emit_numeric_dt`` (FieldBool,
+#                      default True): toggle the v0.0.14 numeric-x dt
+#                      page (``<base>_<hdu>_dt`` / ``Overlay_<unit>_dt``).
+#                    - ``datetime_emit_text_dt`` (FieldBool,
+#                      default True): toggle the NEW v0.0.15 text-x
+#                      dt_labels page (``<base>_<hdu>_dt_labels`` /
+#                      ``Overlay_<unit>_dt_labels``) which uses a per-
+#                      point text dataset as xData with axis
+#                      ``mode='labels'``.  Sample spacing is uniform.
+#                * Dialog UI: the v0.0.14 ``full_labels_cb`` checkbox is
+#                  replaced by a QSpinBox 0..100 (with " %" suffix) and
+#                  two QCheckBoxes for the two dt page variants.
+#                * The old ``datetime_full_labels`` field is still
+#                  accepted in saved-doc plugin invocations as a back-
+#                  compat shim handled by FITS_AutoPlot.push_to_veusz
+#                  and build_unit_overlay_pages (True -> 100,
+#                  False -> 10).
+#                * GPU + parallelization re-audit: no new sort sites
+#                  introduced by the plugin path; worker pool and
+#                  GPU-sort wiring are inherited unchanged from
+#                  FITS_AutoPlot.
+#                * Revision history kept in DESCENDING semantic-
+#                  version order.
+#
 # %%%% 0.0.14: Datetime via xy.labels per-point text labels.
 # Date: 2026-05-16
 #                * Mirrors FITS_AutoPlot.py v0.0.14: the dt-duplicate
@@ -322,19 +356,47 @@ class _PluginBatchDialog(QDialog):
         self.datetime_dup_cb.setChecked(False)
         root.addWidget(self.datetime_dup_cb)
 
-        # --- v0.0.14: full vs sparse per-point datetime labels ------------
-        self.full_labels_cb = QCheckBox(
-            "Use full per-point date labels on datetime pages "
-            "(one label per data point -- can be visually crowded)"
+        # --- v0.0.15: density-pct + dt page variant toggles ----------------
+        # Replaces the v0.0.14 binary full_labels_cb with a 0..100
+        # percentage spinbox and two checkboxes for the two dt page
+        # variants (numeric-x and text-x).
+        dens_row = QHBoxLayout()
+        dens_row.addWidget(QLabel("Date-label density on dt pages:"))
+        self.label_density_spin = QSpinBox()
+        self.label_density_spin.setRange(0, 100)
+        self.label_density_spin.setValue(10)
+        self.label_density_spin.setSuffix(" %")
+        self.label_density_spin.setToolTip(
+            "Fraction of finite points that get a YYYY-MM-DD HH:MM:SS "
+            "label on the numeric-x dt page.  0 = no labels, "
+            "100 = one label per finite point.  10 (default) matches "
+            "the v0.0.14 sparse behaviour."
         )
-        self.full_labels_cb.setChecked(False)
-        self.full_labels_cb.setToolTip(
-            "When checked, every data point on a datetime-duplicate "
-            "page is annotated with its own YYYY-MM-DD HH:MM:SS "
-            "label.  When unchecked (default), only ~10 evenly spaced "
-            "anchor points are labeled."
+        dens_row.addWidget(self.label_density_spin)
+        dens_row.addStretch(1)
+        root.addLayout(dens_row)
+        self.emit_numeric_dt_cb = QCheckBox(
+            "Emit numeric-x dt page (v0.0.14 lineage)"
         )
-        root.addWidget(self.full_labels_cb)
+        self.emit_numeric_dt_cb.setChecked(True)
+        self.emit_numeric_dt_cb.setToolTip(
+            "When checked, the per-HDU '<base>_<hdu>_dt' page (and the "
+            "matching 'Overlay_<unit>_dt' overlay) is emitted with a "
+            "numeric seconds x axis plus density-controlled text "
+            "labels."
+        )
+        root.addWidget(self.emit_numeric_dt_cb)
+        self.emit_text_dt_cb = QCheckBox(
+            "Emit text-x dt_labels page (v0.0.15 new)"
+        )
+        self.emit_text_dt_cb.setChecked(True)
+        self.emit_text_dt_cb.setToolTip(
+            "When checked, the per-HDU '<base>_<hdu>_dt_labels' page "
+            "(and the matching 'Overlay_<unit>_dt_labels' overlay) is "
+            "emitted with a per-point text dataset as xData and the x "
+            "axis set to mode='labels'.  Sample spacing is uniform."
+        )
+        root.addWidget(self.emit_text_dt_cb)
 
         # --- GPU acceleration (CuPy, optional) (v0.0.10) ------------------
         self.gpu_cb = QCheckBox("Use GPU acceleration (CuPy) for large sorts")
@@ -446,12 +508,27 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Duplicate plots with datetime X axis "
                                 "(YYYY-MM-DD HH:MM:SS)",
                           default=False),
-            # v0.0.14: full vs sparse per-point datetime labels.
-            vzp.FieldBool("datetime_full_labels",
-                          descr="Use full per-point date labels on "
-                                "datetime pages (one label per data "
-                                "point -- can be visually crowded)",
-                          default=False),
+            # v0.0.15: density-pct + dt page variant toggles.
+            # Replaces the v0.0.14 ``datetime_full_labels`` boolean.
+            # The old field name is still accepted by
+            # FITS_AutoPlot.push_to_veusz / build_unit_overlay_pages
+            # as a back-compat shim (True -> 100, False -> 10).
+            vzp.FieldInt("datetime_label_density_pct",
+                         descr="Date-label density on dt pages "
+                               "(0=no labels, 100=every finite point, "
+                               "10 default approximates v0.0.14 sparse)",
+                         default=10, minval=0, maxval=100),
+            vzp.FieldBool("datetime_emit_numeric_dt",
+                          descr="Emit numeric-x dt page "
+                                "(<base>_<hdu>_dt, Overlay_<unit>_dt) "
+                                "with density-controlled date labels",
+                          default=True),
+            vzp.FieldBool("datetime_emit_text_dt",
+                          descr="Emit text-x dt_labels page "
+                                "(<base>_<hdu>_dt_labels, "
+                                "Overlay_<unit>_dt_labels) using a "
+                                "per-point text dataset as xData",
+                          default=True),
         ]
 
     # ------------------------------------------------------------------
@@ -496,9 +573,26 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.datetime_dup_cb.setChecked(
             bool(fields.get("datetime_duplicate") or False)
         )
-        # v0.0.14: pre-seed the per-point full-labels checkbox.
-        dlg.full_labels_cb.setChecked(
-            bool(fields.get("datetime_full_labels") or False)
+        # v0.0.15: pre-seed density spin + dt page-variant checkboxes.
+        # The old ``datetime_full_labels`` field (v0.0.14) is still
+        # honoured here: True -> 100 %, False -> 10 %.  Explicit
+        # ``datetime_label_density_pct`` wins if both are set.
+        _legacy_full = fields.get("datetime_full_labels")
+        if "datetime_label_density_pct" in fields:
+            _pct = int(fields.get("datetime_label_density_pct") or 0)
+        elif _legacy_full is True:
+            _pct = 100
+        elif _legacy_full is False:
+            _pct = 10
+        else:
+            _pct = 10
+        _pct = max(0, min(100, _pct))
+        dlg.label_density_spin.setValue(_pct)
+        dlg.emit_numeric_dt_cb.setChecked(
+            bool(fields.get("datetime_emit_numeric_dt", True))
+        )
+        dlg.emit_text_dt_cb.setChecked(
+            bool(fields.get("datetime_emit_text_dt", True))
         )
         # v0.0.10: optional GPU pre-seed
         dlg.gpu_cb.setChecked(bool(fields.get("use_gpu") or False)
@@ -559,8 +653,10 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         plot_individual = not bool(dlg.combined_only_cb.isChecked())
         # v0.0.11: datetime-duplicate toggle
         datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
-        # v0.0.14: full vs sparse per-point date-label rendering.
-        datetime_full_labels = bool(dlg.full_labels_cb.isChecked())
+        # v0.0.15: density-pct + dt page-variant toggles.
+        datetime_label_density_pct = int(dlg.label_density_spin.value())
+        datetime_emit_numeric_dt = bool(dlg.emit_numeric_dt_cb.isChecked())
+        datetime_emit_text_dt = bool(dlg.emit_text_dt_cb.isChecked())
         # v0.0.10: drive the process-wide GPU flag from the checkbox
         enable_gpu(dlg.gpu_cb.isChecked() and dlg.gpu_cb.isEnabled())
         dlg.append_log("GPU backend: %s" % gpu_backend_name())
@@ -592,7 +688,12 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                                   gap_k=gap_k,
                                   gap_absolute=gap_absolute,
                                   datetime_duplicate=datetime_duplicate,
-                                  datetime_full_labels=datetime_full_labels)
+                                  datetime_label_density_pct=
+                                      datetime_label_density_pct,
+                                  datetime_emit_numeric_dt=
+                                      datetime_emit_numeric_dt,
+                                  datetime_emit_text_dt=
+                                      datetime_emit_text_dt)
                 except Exception as exc:
                     dlg.append_log("  push_to_veusz failed for %s: %s"
                                    % (path, exc))
@@ -619,7 +720,12 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                         gap_k=gap_k, gap_absolute=gap_absolute,
                         log_cb=dlg.append_log,
                         datetime_duplicate=datetime_duplicate,
-                        datetime_full_labels=datetime_full_labels,
+                        datetime_label_density_pct=
+                            datetime_label_density_pct,
+                        datetime_emit_numeric_dt=
+                            datetime_emit_numeric_dt,
+                        datetime_emit_text_dt=
+                            datetime_emit_text_dt,
                     )
                 except Exception as exc:
                     dlg.append_log(
