@@ -24,6 +24,19 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.18: Unit-aware time-break detection (no plugin changes).
+# Date: 2026-05-16
+#              Plugin-side version bump only.  The unit-aware break
+#              detection fix is implemented in _autoplot_common
+#              (``detect_time_breaks_unit_aware``) and in the
+#              Franks_AutoPlot engine, which the plugin already calls
+#              with ``gap_absolute`` (MJD-days).  Franks always uses
+#              ``MJD`` as the sort key (day-scale, factor = 1.0), so
+#              the behavior in Franks is unchanged in practice -- the
+#              version bump tracks the lockstep release schedule.
+#              Revision history kept in DESCENDING semantic-version
+#              order.
+#
 # %%%% 0.0.17: No plugin-side changes (engine bump only).
 # Date: 2026-05-16
 #              The standalone Franks_AutoPlot GUI gained the v0.0.17

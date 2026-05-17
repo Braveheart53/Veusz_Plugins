@@ -24,6 +24,21 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.18: Unit-aware time-break detection (no field changes).
+# Date: 2026-05-16
+#              Plugin-side version bump only.  The unit-aware break-
+#              detection fix lives entirely in _autoplot_common
+#              (``detect_time_breaks_unit_aware``) and the engine
+#              entry points in FITS_AutoPlot, which the plugin already
+#              calls with the same ``gap_absolute`` (MJD-days) value.
+#              No plugin field schema changes; the existing
+#              ``gap_absolute`` saved-field (hours) continues to be
+#              divided by 24.0 in the plugin submit handler and
+#              passed through to the engine as MJD-days, where the
+#              engine now converts to column units automatically.
+#              Revision history kept in DESCENDING semantic-version
+#              order.
+#
 # %%%% 0.0.17: Sentinel channel-tag dt-overlay filter (no field changes).
 # Date: 2026-05-16
 #              Plugin inherits the v0.0.17 FITS-side fix via
