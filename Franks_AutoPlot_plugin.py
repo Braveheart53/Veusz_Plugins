@@ -24,6 +24,22 @@ Author Business Phone: +1 (304) 456-2216
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.0.19: Add gap_string + hide_keys plugin fields; plumb through.
+# Date: 2026-05-16
+#              Same two new fields as FITS_AutoPlot_plugin 0.0.19:
+#                * ``gap_string`` (FieldText, default "") -- overrides
+#                  ``gap_absolute`` (hours) when non-empty; parsed via
+#                  ``parse_gap_string``.  Tokens: m=months, d=days,
+#                  h=hours; case-insensitive; whitespace tolerated.
+#                * ``hide_keys`` (FieldBool, default False) -- forwarded
+#                  as the ``hide_keys`` kwarg to
+#                  ``push_franks_to_veusz`` and
+#                  ``build_unit_overlay_pages_franks`` so every key
+#                  widget's Border is hidden when True.
+#              The batch dialog gained matching
+#              ``self.gap_abs_str`` QLineEdit + ``self.hide_keys_cb``
+#              QCheckBox.
+#
 # %%%% 0.0.18: Unit-aware time-break detection (no plugin changes).
 # Date: 2026-05-16
 #              Plugin-side version bump only.  The unit-aware break
@@ -251,10 +267,12 @@ from _autoplot_common import (                      # noqa: E402
     QApplication, QFileDialog, QMessageBox,
     QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QFormLayout,
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
-    QProgressBar, QTextEdit,
+    QProgressBar, QTextEdit, QLineEdit,
     apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
     run_in_threadpool, safe_dsname, mjd_to_datestr,
     is_gpu_available, enable_gpu, gpu_backend_name,
+    # v0.0.19: string gap parser
+    parse_gap_string,
 )
 try:
     from qtpy.QtWidgets import QDialog
@@ -334,7 +352,21 @@ class _PluginBatchDialog(QDialog):
         self.gap_abs_spin.setValue(0.0)
         # v0.0.16: spinbox is in HOURS; converted to MJD-days when read.
         form2.addRow("Manual gap (hours; 0=auto):", self.gap_abs_spin)
+
+        # v0.0.19: free-form gap-string input (overrides spinbox when set).
+        self.gap_abs_str = QLineEdit()
+        self.gap_abs_str.setPlaceholderText("e.g. 5m3d2h  (overrides spinbox)")
+        self.gap_abs_str.setToolTip(
+            "Optional gap string.  Units: m = months (~30.44 days), "
+            "d = days, h = hours.  Examples: '3d', '120h', '5m 3d 2h'."
+        )
+        form2.addRow("Manual gap (string; overrides):", self.gap_abs_str)
         root.addLayout(form2)
+
+        # v0.0.19: hide legend keys on every page.
+        self.hide_keys_cb = QCheckBox("Hide legend keys on all pages")
+        self.hide_keys_cb.setChecked(False)
+        root.addWidget(self.hide_keys_cb)
 
         self.combined_only_cb = QCheckBox(
             "Combined (overlay) plots only -- skip per-file pages"
@@ -516,6 +548,15 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                           descr="Duplicate plots with datetime X axis "
                                 "(YYYY-MM-DD HH:MM:SS)",
                           default=False),
+            # v0.0.19: free-form gap string + hide-keys.
+            vzp.FieldText("gap_string",
+                          descr="Optional gap string (overrides gap_absolute). "
+                                "e.g. '5m3d2h' (m=months, d=days, h=hours; "
+                                "case-insensitive; whitespace OK).",
+                          default=""),
+            vzp.FieldBool("hide_keys",
+                          descr="Hide legend keys on every page",
+                          default=False),
         ]
 
     # ------------------------------------------------------------------
@@ -578,6 +619,17 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.emit_text_dt_cb.setChecked(
             bool(fields.get("datetime_emit_text_dt", True))
         )
+        # v0.0.19: pre-seed gap-string + hide-keys.
+        try:
+            _gs = fields.get("gap_string")
+            if _gs is not None:
+                dlg.gap_abs_str.setText(str(_gs))
+        except Exception:
+            pass
+        try:
+            dlg.hide_keys_cb.setChecked(bool(fields.get("hide_keys") or False))
+        except Exception:
+            pass
         # v0.0.10: optional GPU pre-seed
         dlg.gpu_cb.setChecked(bool(fields.get("use_gpu") or False)
                               and dlg.gpu_cb.isEnabled())
@@ -623,6 +675,17 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         # v0.0.16: spinbox is in HOURS -- convert to MJD-days.
         gap_absolute_hours = float(dlg.gap_abs_spin.value())
         gap_absolute = gap_absolute_hours / 24.0
+        # v0.0.19: free-form gap string overrides spinbox when set.
+        gap_string_text = ""
+        try:
+            gap_string_text = dlg.gap_abs_str.text().strip()
+        except Exception:
+            gap_string_text = ""
+        if gap_string_text:
+            gap_absolute = parse_gap_string(gap_string_text,
+                                            log_cb=dlg.append_log)
+        # v0.0.19: hide-legend-keys checkbox
+        hide_keys = bool(dlg.hide_keys_cb.isChecked())
         plot_individual = not bool(dlg.combined_only_cb.isChecked())
         # v0.0.11: datetime-duplicate toggle
         datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
@@ -662,7 +725,8 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                                      datetime_emit_numeric_dt=
                                          datetime_emit_numeric_dt,
                                      datetime_emit_text_dt=
-                                         datetime_emit_text_dt)
+                                         datetime_emit_text_dt,
+                                     hide_keys=hide_keys)
             except Exception as exc:
                 dlg.append_log("  push failed for %s: %s" % (path, exc))
             else:
@@ -688,6 +752,7 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                         datetime_emit_numeric_dt,
                     datetime_emit_text_dt=
                         datetime_emit_text_dt,
+                    hide_keys=hide_keys,
                 )
             except Exception as exc:
                 dlg.append_log(
