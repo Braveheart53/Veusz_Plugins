@@ -12,18 +12,22 @@ Veusz Tools plugin equivalent of Franks_AutoPlot.py.  Adds the menu entry
 to the active Veusz instance.  Invoking it opens a Touchstone-style qtpy
 dialog identical in shape to the standalone Franks_AutoPlot.py window
 (file list, thread count, RSS spill threshold, theme toggle, log area,
-progress bar) and on accept pours every parsed column dataset and plot
-page into the *current* document.
+progress bar) and exports a separate native .vszh5 project using h5py.
+The current Veusz document is left untouched.
 
 # %%% Author Information
 @author: William W. Wallace
-Author Email: wwallace@nrao.edu
-Author Secondary Email: naval.antennas@gmail.com
-Author Business Phone: +1 (304) 456-2216
 
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.1.0: Native project export plugin; leave the host document untouched.
+# Date: 2026-10-11
+#              Veusz plugin API is used only for host menu integration.
+#              Output uses the same h5py writer as the standalone script.
+#              Adds output_file, minimized and also_full plugin fields.
+#              Can also launch the standalone GUI without a Veusz install.
+#
 # %%%% 0.0.19: Add gap_string + hide_keys plugin fields; plumb through.
 # Date: 2026-05-16
 #              Same two new fields as FITS_AutoPlot_plugin 0.0.19:
@@ -250,12 +254,30 @@ import sys
 import traceback
 from typing import Any, Dict, List
 
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+# Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+_HOST_PLUGIN_PATH = None
+_module_file = globals().get("__file__")
+if not _module_file or globals().get("__name__", "").startswith("veusz."):
+    _frame = sys._getframe()
+    while _frame is not None:
+        if _frame.f_code.co_name == "loadPlugins":
+            _candidate = _frame.f_locals.get("plugin")
+            if isinstance(_candidate, str) and os.path.isfile(_candidate):
+                _HOST_PLUGIN_PATH = _candidate
+                break
+        _frame = _frame.f_back
+    del _frame
+if not (_HOST_PLUGIN_PATH or _module_file):
+    raise RuntimeError("Cannot locate plugin file; import this file as a module")
+_THIS_DIR = os.path.dirname(os.path.abspath(_HOST_PLUGIN_PATH or _module_file))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
 # %%% IMPORTS - Veusz plugin API
-import veusz.plugins as vzp
+try:
+    import veusz.plugins as vzp  # menu registration only, never file generation
+except ImportError:
+    vzp = None
 
 # %%% IMPORTS - Sibling modules / shared GUI helpers
 from Franks_AutoPlot import (                       # noqa: E402
@@ -273,6 +295,7 @@ from _autoplot_common import (                      # noqa: E402
     is_gpu_available, enable_gpu, gpu_backend_name,
     # v0.0.19: string gap parser
     parse_gap_string,
+    begin_native_plugin_export, finish_native_plugin_export,
 )
 try:
     from qtpy.QtWidgets import QDialog
@@ -487,8 +510,8 @@ class _PluginBatchDialog(QDialog):
 # ============================================================================
 # %% THE PLUGIN
 # ============================================================================
-class FranksAutoPlotPlugin(vzp.ToolsPlugin):
-    """Veusz Tools plugin: batch process FranksProcessed files into the current document."""
+class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
+    """Veusz menu entry for native ASCII project export, not host-document editing."""
 
     menu = ("NRAO / FitsAutoPlot", "Franks AutoPlot (Batch)")
     name = "Franks AutoPlot"
@@ -496,13 +519,20 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
     description_full = (
         "Open a Touchstone-style GUI to select one or more FranksProcessed "
         "files (*.t00new, time_gbt.dat, and their .bak variants), choose "
-        "threading and RSS spill threshold, then load all columns as Veusz "
-        "datasets tagged by filename and raw/sorted, with a single plot "
-        "page per file showing each numeric column versus MJD."
+        "threading and RSS spill threshold, then export a native .vszh5 "
+        "file through h5py. The current Veusz document is not modified."
     )
 
     def __init__(self) -> None:
+        if vzp is None:
+            raise RuntimeError("Use Franks_AutoPlot.py outside the Veusz plugin host")
         self.fields = [
+            vzp.FieldText("output_file", descr="Native .vszh5 output (blank: ask)",
+                          default=""),
+            vzp.FieldBool("minimized", descr="Save only plot-used datasets",
+                          default=True),
+            vzp.FieldBool("also_full", descr="Also save a full companion project",
+                          default=False),
             vzp.FieldText("default_theme",
                           descr="Default theme (dark/light)",
                           default="dark"),
@@ -641,6 +671,9 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                                     "No files selected -- aborting.")
             return
 
+        interface, output_file = begin_native_plugin_export(fields)
+        if interface is None:
+            return
         cache = MemoryAwareCache(MemoryMonitorConfig(
             rss_high_water_mb=int(dlg.rss_spin.value())
         ))
@@ -701,7 +734,7 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
                                     max_workers=int(dlg.thread_spin.value()),
                                     progress_cb=_cb)
         emit_datestr = bool(dlg.datestr_cb.isChecked())
-        dlg.append_log("Pushing datasets into Veusz document...")
+        dlg.append_log("Building native project datasets and pages...")
         for idx, (path, data) in enumerate(results.items(), start=1):
             if isinstance(data, Exception):
                 dlg.append_log("  ERROR %s: %s" % (path, data))
@@ -761,12 +794,25 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.progress.setVisible(False)
         dlg.parse_progress.setVisible(False)
         dlg.column_progress.setVisible(False)
-        dlg.append_log("Done.")
         mon.stop()
         cache.cleanup()
+        finish_native_plugin_export(interface, output_file, fields, dlg.append_log)
+        dlg.append_log("Done.")
 
 
 # ============================================================================
 # %% REGISTER
 # ============================================================================
-vzp.toolspluginregistry.append(FranksAutoPlotPlugin)
+if _HOST_PLUGIN_PATH:
+    import importlib.util as _import_util
+    _spec = _import_util.spec_from_file_location(
+        "_autoplot_registered_franks", _HOST_PLUGIN_PATH)
+    _module = _import_util.module_from_spec(_spec)
+    sys.modules[_spec.name] = _module
+    _spec.loader.exec_module(_module)
+elif vzp is not None:
+    vzp.toolspluginregistry.append(FranksAutoPlotPlugin)
+
+if __name__ == "__main__":
+    from Franks_AutoPlot import main
+    sys.exit(main())

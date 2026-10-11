@@ -12,18 +12,22 @@ your Veusz plugins folder (or load it via
     Tools -> NRAO / FitsAutoPlot -> FITS AutoPlot (Batch)
 
 will appear.  Selecting it opens the same Touchstone-style qtpy GUI as the
-standalone script and, when the user clicks "Process Files", pours every
-column dataset and plot page into the current Veusz document.
+standalone script and exports a separate native .vszh5 project using h5py.
+The current Veusz document is left untouched.
 
 # %%% Author Information
 @author: William W. Wallace
-Author Email: wwallace@nrao.edu
-Author Secondary Email: naval.antennas@gmail.com
-Author Business Phone: +1 (304) 456-2216
 
 # %%% Revisions
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.1.0: Native project export plugin; leave the host document untouched.
+# Date: 2026-10-11
+#              Veusz plugin API is used only for host menu integration.
+#              Output uses the same h5py writer as the standalone script.
+#              Adds output_file, minimized and also_full plugin fields.
+#              Can also launch the standalone GUI without a Veusz install.
+#
 # %%%% 0.0.19: Add gap_string + hide_keys plugin fields; plumb through.
 # Date: 2026-05-16
 #              Two new plugin fields:
@@ -278,12 +282,33 @@ import traceback
 from typing import Any, Dict, List
 
 # Make sibling files importable when Veusz loads the plugin from a path
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+# Veusz 3.x executes plugin text inside Document.loadPlugins(), where
+# __file__ belongs to Veusz and the selected filename is a local "plugin".
+_HOST_PLUGIN_PATH = None
+_module_file = globals().get("__file__")
+if not _module_file or globals().get("__name__", "").startswith("veusz."):
+    # 3.6/4.1 use exec(text, {}), which also omits __file__. Inspect only
+    # the loader's filename, never any document or dataset content.
+    _frame = sys._getframe()
+    while _frame is not None:
+        if _frame.f_code.co_name == "loadPlugins":
+            _candidate = _frame.f_locals.get("plugin")
+            if isinstance(_candidate, str) and os.path.isfile(_candidate):
+                _HOST_PLUGIN_PATH = _candidate
+                break
+        _frame = _frame.f_back
+    del _frame
+if not (_HOST_PLUGIN_PATH or _module_file):
+    raise RuntimeError("Cannot locate plugin file; import this file as a module")
+_THIS_DIR = os.path.dirname(os.path.abspath(_HOST_PLUGIN_PATH or _module_file))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
 # %%% IMPORTS - Veusz plugin API
-import veusz.plugins as vzp
+try:
+    import veusz.plugins as vzp  # menu registration only, never file generation
+except ImportError:
+    vzp = None
 
 # %%% IMPORTS - shared AutoPlot infrastructure
 # Reuse the standalone implementation
@@ -306,6 +331,7 @@ from _autoplot_common import (                    # noqa: E402
     register_nrao_fits_units, suppress_fits_unit_warnings,
     # v0.0.19: string gap parser
     parse_gap_string,
+    begin_native_plugin_export, finish_native_plugin_export,
 )
 
 # Idempotent: ensures the NRAO custom FITS unit aliases ('none',
@@ -363,9 +389,7 @@ class _PluginBatchDialog(QDialog):
         # Options
         form = QFormLayout()
         self.backend_combo = QComboBox()
-        self.backend_combo.addItems(["both (Veusz + astropy)",
-                                     "veusz (native FITS import)",
-                                     "astropy"])
+        self.backend_combo.addItems(["astropy (native HDF5 output)"])
         form.addRow("Import backend:", self.backend_combo)
         self.thread_spin = QSpinBox()
         self.thread_spin.setRange(1, max(1, (os.cpu_count() or 4) * 2))
@@ -542,22 +566,29 @@ class _PluginBatchDialog(QDialog):
 # ============================================================================
 # %% THE PLUGIN
 # ============================================================================
-class FITSAutoPlotPlugin(vzp.ToolsPlugin):
-    """Veusz Tools plugin: batch process NRAO FITS files into the current document."""
+class FITSAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
+    """Veusz menu entry for native FITS project export, not host-document editing."""
 
     menu = ("NRAO / FitsAutoPlot", "FITS AutoPlot (Batch)")
     name = "FITS AutoPlot"
     description_short = "Batch import NRAO FITS files (column oriented)"
     description_full = (
         "Open a Touchstone-style GUI to select one or more FITS files "
-        "(compressed .gz allowed), choose backend (Veusz native, astropy, "
-        "or both), threading and RSS spill threshold, then load all columns "
-        "as Veusz datasets tagged by filename and raw/sorted, with a plot "
-        "page per HDU."
+        "(compressed .gz allowed), choose threading and RSS spill threshold, "
+        "then export a native .vszh5 file through h5py. The current Veusz "
+        "document is not modified."
     )
 
     def __init__(self) -> None:
+        if vzp is None:
+            raise RuntimeError("Use FITS_AutoPlot.py outside the Veusz plugin host")
         self.fields = [
+            vzp.FieldText("output_file", descr="Native .vszh5 output (blank: ask)",
+                          default=""),
+            vzp.FieldBool("minimized", descr="Save only plot-used datasets",
+                          default=True),
+            vzp.FieldBool("also_full", descr="Also save a full companion project",
+                          default=False),
             vzp.FieldText("default_theme",
                           descr="Default theme (dark/light)",
                           default="dark"),
@@ -705,7 +736,11 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                                     "No files selected -- aborting.")
             return
 
-        backend = ["both", "veusz", "astropy"][dlg.backend_combo.currentIndex()]
+        # Deliberately replace the host API with a native in-memory model.
+        interface, output_file = begin_native_plugin_export(fields)
+        if interface is None:
+            return
+        backend = "astropy"
         cache = MemoryAwareCache(MemoryMonitorConfig(
             rss_high_water_mb=int(dlg.rss_spin.value())
         ))
@@ -779,7 +814,7 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
                                         max_workers=int(dlg.thread_spin.value()),
                                         progress_cb=_cb)
             emit_datestr = bool(dlg.datestr_cb.isChecked())
-            dlg.append_log("Pushing datasets into Veusz document...")
+            dlg.append_log("Building native project datasets and pages...")
             for idx, (path, data) in enumerate(results.items(), start=1):
                 if isinstance(data, Exception):
                     dlg.append_log("  ERROR %s: %s" % (path, data))
@@ -849,12 +884,27 @@ class FITSAutoPlotPlugin(vzp.ToolsPlugin):
         dlg.progress.setVisible(False)
         dlg.parse_progress.setVisible(False)
         dlg.column_progress.setVisible(False)
-        dlg.append_log("Done.")
         mon.stop()
         cache.cleanup()
+        finish_native_plugin_export(interface, output_file, fields, dlg.append_log)
+        dlg.append_log("Done.")
 
 
 # ============================================================================
 # %% REGISTER WITH VEUSZ
 # ============================================================================
-vzp.toolspluginregistry.append(FITSAutoPlotPlugin)
+if _HOST_PLUGIN_PATH:
+    # Import in a real module namespace so class methods retain their globals.
+    # The temporary classes from Veusz's exec scope are deliberately discarded.
+    import importlib.util as _import_util
+    _spec = _import_util.spec_from_file_location(
+        "_autoplot_registered_fits", _HOST_PLUGIN_PATH)
+    _module = _import_util.module_from_spec(_spec)
+    sys.modules[_spec.name] = _module
+    _spec.loader.exec_module(_module)
+elif vzp is not None:
+    vzp.toolspluginregistry.append(FITSAutoPlotPlugin)
+
+if __name__ == "__main__":
+    from FITS_AutoPlot import main
+    sys.exit(main())
