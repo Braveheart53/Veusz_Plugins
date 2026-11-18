@@ -4,6 +4,7 @@
 Franks_AutoPlot_plugin.py
 -----------------------------------------------------------------------------
 # %% Header Info
+--------
 
 Veusz Tools plugin equivalent of Franks_AutoPlot.py.  Adds the menu entry
 
@@ -17,19 +18,333 @@ The current Veusz document is left untouched.
 
 # %%% Author Information
 @author: William W. Wallace
+Author Email: wwallace@nrao.edu
+Author Secondary Email: naval.antennas@gmail.com
+Author Business Phone: +1 (304) 456-2216
 
 # %%% Revisions
+--------
 Utilizing Semantic Schema as External Release.Internal Release.Working version
 
+# %%%% 0.3.8: Pages to draw: Per file, Combined axis, Overlay.
+Date: 2026-11-17
+#              Operator request 2026-11-17: Per file, Combined axis and
+#              Overlay pages in every program; a combined page looks like a
+#              file's own page but holds the same quantity of every file
+#              joined end to end (the full range on each axis, not overlaid),
+#              listed just above the overlays; gaps and the RAM limit apply.
+#              * Pages to draw (PageTypesBox) replaces "Combine files only";
+#                NEW field "pages" (default per_file,combined,overlay); the old
+#                combined_only field still unticks Per file.  The combined
+#                page comes from Franks_AutoPlot.push_combined_franks_pages.
+#              Checked (Python 3.12.3): tests/test_page_kinds.py (22 tests)
+#              and the whole suite; real files of every program with every
+#              page-kind set, in RAM and offloaded (the files identical):
+#              each combined trace equals the files' traces joined and
+#              stable-sorted, the pages are in order (combined just above the
+#              overlays) and the gaps are the same in the project, the Plots
+#              tab and the saved file; with Combined axis off the projects are
+#              the 0.4.8 ones (every dataset and script line).
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Gaps (every plot generator): a small gap (step > K x median step, or a
+    fixed time) can break the line / trace; a large gap (no trace has data for
+    > n x the small gap, or a fixed time) can break the x axis; each is a check
+    box (GUI) or flag (--no-line-breaks, --no-axis-breaks), and "also on x axes
+    that are not time" (--no-numeric-gaps to turn off) applies the rule to sorted
+    frequency / angle / index axes with a log-scale test, so a log sweep is not
+    cut.  Rule: vszh5_writer 0.0.30 GapRule; notes state the rule in use.
+    The data of a run are released when the
+    project is written (release_memory).
+    Time axes: Local time (default), UTC and MJD tick boxes; one set of pages
+    per ticked clock ("<page>_utc", "<page>_mjd").  Local time is the zone of
+    the computer running the program, read for every sample (DST-aware); the
+    axis label names it (VSZH5_DISPLAY_TZ overrides it).
+    RAM limit: when this computer's RAM in use (all programs) reaches the
+    share set under the options (default 80 %, 0 = never), the plot data go to
+    a temporary pickle file and the .vszh5 is written from it on Save.
+    Pages to draw (all ticked): Per file - each file's own pages;
+    Combined axis - the same quantity of every file joined end to end and
+    sorted on x (one trace spanning every file, cut only where no file has
+    data), just above the overlays; Overlay - the files' traces on one graph.
+    Plugin field: pages (per_file,combined,overlay).
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.7: Gap options enforced.
+Date: 2026-11-17
+#              * As FITS AutoPlot plugin 0.3.7: checked gap texts, the hours box
+#                when the small-gap text cannot be read, exact seconds.
+#              Checked (Python 3.12.3): tests/test_gap_enforcement.py (20 tests)
+#              and the whole suite; every option set before a run and changed
+#              after it, in CSV/TSV (a file with known gaps, 64 cases at the
+#              boundaries), FITS (GBT tack, UWBR Vacuum, 30-day 1PPS), ATR,
+#              R&S and Touchstone: the project, the Plots tab and the saved
+#              file agree; real files without a daylight-saving change give
+#              the same .vszh5 as 0.4.7 (every dataset and script line).
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Gaps (every plot generator): a small gap (step > K x median step, or a
+    fixed time) can break the line / trace; a large gap (no trace has data for
+    > n x the small gap, or a fixed time) can break the x axis; each is a check
+    box (GUI) or flag (--no-line-breaks, --no-axis-breaks), and "also on x axes
+    that are not time" (--no-numeric-gaps to turn off) applies the rule to sorted
+    frequency / angle / index axes with a log-scale test, so a log sweep is not
+    cut.  Rule: vszh5_writer 0.0.30 GapRule; notes state the rule in use.
+    The data of a run are released when the
+    project is written (release_memory).
+    Time axes: Local time (default), UTC and MJD tick boxes; one set of pages
+    per ticked clock ("<page>_utc", "<page>_mjd").  Local time is the zone of
+    the computer running the program, read for every sample (DST-aware); the
+    axis label names it (VSZH5_DISPLAY_TZ overrides it).
+    RAM limit: when this computer's RAM in use (all programs) reaches the
+    share set under the options (default 80 %, 0 = never), the plot data go to
+    a temporary pickle file and the .vszh5 is written from it on Save.
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.6: RAM limit - plot data offloaded to disk above it.
+Date: 2026-11-17
+#              * Dialog: the RamLimitBox (shared value, default 80 %); offload
+#                messages in the dialog's log.
+#              Checked (Python 3.12.3): tests/test_offload.py (16 tests) and the
+#              whole suite; every program's real files (FITS GBT tack, UWBR
+#              Temps / Vacuum, ATR, R&S, CSV, Touchstone) saved with every
+#              dataset offloaded: identical to the in-RAM save in every
+#              dataset, attribute and script line; Plots tab identical.
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Gaps (every plot generator): a small gap (step > K x median step, or a
+    fixed time) can break the line / trace; a large gap (no trace has data for
+    > n x the small gap, or a fixed time) can break the x axis; each is a check
+    box (GUI) or flag (--no-line-breaks, --no-axis-breaks), and "also on x axes
+    that are not time" (--no-numeric-gaps to turn off) applies the rule to sorted
+    frequency / angle / index axes with a log-scale test, so a log sweep is not
+    cut.  Rule: vszh5_writer 0.0.30 GapRule; notes state the rule in use.
+    The data of a run are released when the
+    project is written (release_memory).
+    Time axes: Local time (default), UTC and MJD tick boxes; one set of pages
+    per ticked clock ("<page>_utc", "<page>_mjd").  Local time is the zone of
+    the computer running the program, read for every sample (DST-aware); the
+    axis label names it (VSZH5_DISPLAY_TZ overrides it).
+    RAM limit: when this computer's RAM in use (all programs) reaches the
+    share set under the options (default 80 %, 0 = never), the plot data go to
+    a temporary pickle file and the .vszh5 is written from it on Save.
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.5: Time axes in local time (this computer's zone), UTC and MJD.
+Date: 2026-11-17
+#              * Dialog: the TimeAxesBox (Local time default, UTC, MJD, zone
+#                line); fields time_local, time_utc, time_mjd; the log lists
+#                the clocks.
+#              Checked (Python 3.12.3, Veusz 4.2.1): tests/test_time_clocks.py
+#              (15 tests) and the whole suite; FITS GBT tack / UWBR Temps /
+#              30-day 1PPS, synthetic FITS / Franks and CSV projects with
+#              all three clocks rendered in Veusz with every tick label
+#              drawn; local-only projects identical to 0.4.5 in every
+#              dataset (only the axis label and graph notes changed).
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Gaps (every plot generator): a small gap (step > K x median step, or a
+    fixed time) can break the line / trace; a large gap (no trace has data for
+    > n x the small gap, or a fixed time) can break the x axis; each is a check
+    box (GUI) or flag (--no-line-breaks, --no-axis-breaks), and "also on x axes
+    that are not time" (--no-numeric-gaps to turn off) applies the rule to sorted
+    frequency / angle / index axes with a log-scale test, so a log sweep is not
+    cut.  Rule: vszh5_writer 0.0.30 GapRule; notes state the rule in use.
+    The data of a run are released when the
+    project is written (release_memory).
+    Time axes: Local time (default), UTC and MJD tick boxes; one set of pages
+    per ticked clock ("<page>_utc", "<page>_mjd").  Local time is the zone of
+    the computer running the program, read for every sample (DST-aware); the
+    axis label names it (VSZH5_DISPLAY_TZ overrides it).
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.4: The run's data and project are released when it ends.
+Date: 2026-11-16
+#              * After the project is written, the data parsed and the project
+#                are dropped and the memory is handed back to the operating
+#                system (Veusz keeps running).  The dialog's Clear holds file
+#                names only (nothing is read before Process).
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Gaps (every plot generator): a small gap (step > K x median step, or a
+    fixed time) can break the line / trace; a large gap (no trace has data for
+    > n x the small gap, or a fixed time) can break the x axis; each is a check
+    box (GUI) or flag (--no-line-breaks, --no-axis-breaks), and "also on x axes
+    that are not time" (--no-numeric-gaps to turn off) applies the rule to sorted
+    frequency / angle / index axes with a log-scale test, so a log sweep is not
+    cut.  Rule: vszh5_writer 0.0.30 GapRule; notes state the rule in use.
+    The data of a run are released when the
+    project is written (release_memory).
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.3: Gap options in the batch dialog and the plugin fields.
+Date: 2026-11-16
+#              * Dialog check boxes "Break the line / trace at small gaps",
+#                "Break the x axis at large gaps", "Also on x axes that are
+#                not time" (tool tips; K and the fixed small gap stay enabled
+#                while either break is on); new plugin fields
+#                gap_break_lines, gap_break_axis, gap_numeric (default True)
+#                pre-seed them and go into the TimeLayout.
+#              * The fixed-small-gap text box has the shared GAP_STRING_HELP
+#                tool tip (s, min, h, d, m).
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Gaps (every plot generator): a small gap (step > K x median step, or a
+    fixed time) can break the line / trace; a large gap (no trace has data for
+    > n x the small gap, or a fixed time) can break the x axis; each is a check
+    box (GUI) or flag (--no-line-breaks, --no-axis-breaks), and "also on x axes
+    that are not time" (--no-numeric-gaps to turn off) applies the rule to sorted
+    frequency / angle / index axes with a log-scale test, so a log sweep is not
+    cut.  Rule: vszh5_writer 0.0.30 GapRule; notes state the rule in use.
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.2: Source tags of the overlay datasets; names and tags as Franks 0.4.2.
+Date: 2026-11-10
+#              * The file records of the overlay pass carry "source" (the
+#                file stem), so overlay datasets are tagged source_<file>.
+#              * COMMENTS column, exact text, tags and trace names come from
+#                Franks AutoPlot 0.4.2 (parse_franks_file, push_franks_to_veusz).
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.1: Progress throttle; GPU checkbox for NVIDIA or AMD.
+Date: 2026-11-09
+#              * Column progress at most every 50 ms (ProgressThrottle).
+#              * GPU checkbox and tooltip as Franks AutoPlot 0.4.1; the log
+#                reports GPU / CPU sorts per batch.
+#              * Parsing stays in threads: a process pool would re-run
+#                Veusz's own main module in every 'spawn' worker.
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.3.0: Gap rule and local ISO 8601 on every page (standalone 0.4.0).
+Date: 2026-11-09
+#              * Small gap: a trace breaks where its step dt > K x median(dt)
+#                (or a fixed time).  Large gap: the x axis breaks where no
+#                trace has data for dt > n x the small-gap threshold (new
+#                "Large gap n", default 100; field gap_axis_n) or a fixed time
+#                (new "Large gap fixed", field gap_axis_string).
+#              * Every page plots MJD as a Veusz date-time axis in local ISO
+#                8601 (the exported NativeDocument is laid out on save).
+#              * Pages in file-name order, not thread completion order.
+#              * "Duplicate plots" relabelled "Legacy: also build duplicate
+#                _dt / _dt_labels pages".
+#              * FIX (Python 3.12 crash): the memory monitor callback is the
+#                dialog's bound method rss_crossed (held weakly); the lambda
+#                it replaced let the monitor thread drop the last reference
+#                and destroy the dialog outside the GUI thread.
+#                append_log() is thread-safe (queued to the GUI thread).
+#              * Docstrings for every function and method; author contact
+#                lines in the header.
+#              * Tooltips (pop-up help) on every button, box and field that
+#                had none; 14 widgets.
+# %%%%% Function Descriptions
+        _PluginBatchDialog (class): Modal qtpy dialog used by the plugin entry point.
+        FranksAutoPlotPlugin (class): Veusz menu entry for native ASCII project export, not host-document editing.
+# %%%%% Variable Descriptions
+    Define all utilized variables
+        _HOST_PLUGIN_PATH: Veusz 3.x's exec loader supplies its selected filename as local "plugin".
+        _THIS_DIR: folder of this plugin file (the Veusz host's plugin path when loaded by Veusz)
+# %%%%% More Info
+    Veusz: Tools -> NRAO / FitsAutoPlot -> Franks AutoPlot (Batch).  Writes a
+    separate native .vszh5 project; the host Veusz document is not changed.
+    Requirements, optional packages and the tested Python 3.8 / 3.12
+    environments: REQUIREMENTS.md (mamba: environment-py38.yml,
+    environment-py312.yml).  Release notes: RELEASE_suite-2026-11-09.md.
+# %%%% 0.2.0: Dialog-only theme; local ISO date-time pages by default.
+Date: 2026-11-09
+#              * The legacy labelled _dt page is off by default
+#                (datetime_emit_numeric_dt field and check box); the
+#                dt_labels pages are Veusz date-time axes in local ISO 8601
+#                time (see the standalone program 0.3.0).
+#              * The Dark / Light choice styles only this dialog (below).
+#              (2026-11-05) The Dark / Light choice styles only this dialog
+#              (_suite_gui.dialog_stylesheet).  It used to set the palette of
+#              the whole application, which re-themed the Veusz window the
+#              plugin runs in.
 # %%%% 0.1.0: Native project export plugin; leave the host document untouched.
-# Date: 2026-10-11
+Date: 2026-10-11
 #              Veusz plugin API is used only for host menu integration.
 #              Output uses the same h5py writer as the standalone script.
 #              Adds output_file, minimized and also_full plugin fields.
 #              Can also launch the standalone GUI without a Veusz install.
 #
 # %%%% 0.0.19: Add gap_string + hide_keys plugin fields; plumb through.
-# Date: 2026-05-16
+Date: 2026-05-16
 #              Same two new fields as FITS_AutoPlot_plugin 0.0.19:
 #                * ``gap_string`` (FieldText, default "") -- overrides
 #                  ``gap_absolute`` (hours) when non-empty; parsed via
@@ -45,7 +360,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #              QCheckBox.
 #
 # %%%% 0.0.18: Unit-aware time-break detection (no plugin changes).
-# Date: 2026-05-16
+Date: 2026-05-16
 #              Plugin-side version bump only.  The unit-aware break
 #              detection fix is implemented in _autoplot_common
 #              (``detect_time_breaks_unit_aware``) and in the
@@ -58,7 +373,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #              order.
 #
 # %%%% 0.0.17: No plugin-side changes (engine bump only).
-# Date: 2026-05-16
+Date: 2026-05-16
 #              The standalone Franks_AutoPlot GUI gained the v0.0.17
 #              minimized-Veusz-save checkboxes.  This plugin operates
 #              inside an open Veusz document (saves are user-driven via
@@ -69,7 +384,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #              order.
 #
 # %%%% 0.0.16: dt_labels page mode='datetime' + broken-axis parity.
-# Date: 2026-05-16
+Date: 2026-05-16
 #              * No plugin-field changes vs. v0.0.15.  The plugin
 #                surface is unchanged; the engine (Franks_AutoPlot.py
 #                + _autoplot_common.py) does all the new work: emits
@@ -86,7 +401,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #                so MJD-axis time gaps are entered in hours.
 #
 # %%%% 0.0.15: Density-pct date labels + text-x dt_labels page variant.
-# Date: 2026-05-16
+Date: 2026-05-16
 #                * Plugin-side equivalent of the Franks_AutoPlot.py
 #                  v0.0.15 change.  The legacy ``datetime_full_labels``
 #                  boolean field is REPLACED by:
@@ -121,7 +436,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #                  version order.
 #
 # %%%% 0.0.14: Datetime via xy.labels per-point text labels.
-# Date: 2026-05-16
+Date: 2026-05-16
 #                * Mirrors Franks_AutoPlot.py v0.0.14: the dt-duplicate
 #                  pages now bind a per-point text dataset to
 #                  xy.labels.val (rendering one date string per data
@@ -134,7 +449,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #                * No SetDataDateTime calls in the dt path.
 
 # %%%% 0.0.13: Inherits identity-stable trace styling + datetime-duplicate
-# Date: 2026-05-16
+Date: 2026-05-16
 #              hardening from Franks_AutoPlot.py.  No plugin-side code
 #              changes are required: push_franks_to_veusz,
 #              build_unit_overlay_pages_franks, and the page builders are
@@ -145,12 +460,12 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #              the Veusz Tools menu.
 
 # %%%% 0.0.12: Inherits combined-in-time overlay semantics from
-# Date: 2026-05-16
+Date: 2026-05-16
 #              Franks_AutoPlot.py v0.0.12 -- plugin unchanged because
 #              build_unit_overlay_pages_franks does the work.
 
 # %%%% 0.0.11: Plugin-side support for datetime-duplicate plots (mirrors
-# Date: 2026-05-16
+Date: 2026-05-16
 #              Franks_AutoPlot.py v0.0.11).  _PluginBatchDialog gained a
 #              'Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)'
 #              checkbox; ``apply()`` threads the resulting
@@ -159,7 +474,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #              build_unit_overlay_pages_franks.
 
 # %%%% 0.0.10: Plugin-side support for the optional GPU acceleration
-# Date: 2026-05-16
+Date: 2026-05-16
 #              (mirrors Franks_AutoPlot.py v0.0.10).  _PluginBatchDialog
 #              now exposes a 'Use GPU acceleration (CuPy)' checkbox
 #              that is disabled when CuPy is not importable; ``apply()``
@@ -167,7 +482,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #              pushing.
 
 # %%%% 0.0.9: Plugin-side support for broken-axis + column-name overlay
-# Date: 2026-05-16
+Date: 2026-05-16
 #             (mirrors Franks_AutoPlot.py v0.0.9).  _PluginBatchDialog
 #             now exposes ``Gap K (× median Δt)``, ``Absolute gap``, and
 #             ``Combined plots only`` controls; ``apply()`` threads
@@ -179,7 +494,7 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #             host ``interface`` doc.
 
 # %%%% 0.0.8: Version-bumped in lockstep with the rest of the AutoPlot
-# Date: 2026-05-16
+Date: 2026-05-16
 #             suite which gained 'Open in Veusz...' buttons + a
 #             parallelization audit (MAX_THREADS doubled; parse_franks_file()
 #             vectorized).
@@ -189,30 +504,29 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #             The plugin transparently picks up the MAX_THREADS bump and
 #             the vectorized parse_franks_file() through its imports from
 #             Franks_AutoPlot.py; no code changes are required here.
-# %%%%% Function Descriptions
 
 # %%%% 0.0.7: Added two new progress bars to the plugin dialog -- a
-# Date: 2026-05-16
+Date: 2026-05-16
 #             'Parsing/pushing' file-level bar and a 'Current file -
 #             columns' bar ticked per source column as push_franks_to_veusz()
 #             pours that file into the active document.  No skip-images
 #             knob here (Franks files have no image HDUs).
 
 # %%%% 0.0.6: Added Spyder IDE cell markers (# %% / # %%%) at all major
-# Date: 2026-05-16
+Date: 2026-05-16
 #             section banners and import subsections so the file can be
 #             navigated and run cell-by-cell in Spyder's Outline view.
 #             Cosmetic only -- no behavior change.
 
 # %%%% 0.0.5: The plugin's apply() loop already calls processEvents()
-# Date: 2026-05-16
+Date: 2026-05-16
 #             between every push, so the GUI-responsiveness fix shipped
 #             in Franks_AutoPlot.py 0.0.5 is inherited automatically.
 #             Version bumped here to keep the four files version-aligned.
 #             (No 0.0.4: aligned with the FITS_AutoPlot.py version stream.)
 
 # %%%% 0.0.3: NaN-preserving emission policy (inherits push_franks_to_veusz
-# Date: 2026-05-16
+Date: 2026-05-16
 #             from Franks_AutoPlot.py): rows containing missing or non-
 #             numeric tokens are never dropped -- numeric NaN floats pass
 #             through Veusz's native NaN-aware numeric datasets, and the
@@ -221,36 +535,24 @@ Utilizing Semantic Schema as External Release.Internal Release.Working version
 #             same length and remain index-aligned.
 
 # %%%% 0.0.2: Added "Generate MJD->date strings" checkbox to the modal
-# Date: 2026-05-16
+Date: 2026-05-16
 #             dialog and an ``emit_datestr`` boolean field so the same
 #             option is available from the Veusz Tools menu.
 
 # %%%% 0.0.1: Initial plugin equivalent of Franks_AutoPlot.py
-# Date: 2026-05-16
+Date: 2026-05-16
 
-        FranksAutoPlotPlugin: Veusz ToolsPlugin subclass providing the menu
-            entry, fields (max_threads, rss_mb, default_theme, preseed) and
-            the apply() entry point.
-        _PluginBatchDialog: modal qtpy dialog mirroring the standalone
-            main window without a menu bar (plugin dialogs cannot host a
-            QMainWindow menu, so dark/light is offered as a combo box).
-# %%%%% Variable Descriptions
-        MAX_THREADS / DEFAULT_RSS_HIGH_WATER_MB: imported from
-            Franks_AutoPlot.py so all four deliverables share the same
-            top-of-file knobs.
-# %%%%% More Info
-        Because the Franks data files are pure ASCII, no equivalent of
-        Veusz's native FITS importer is offered; the plugin always parses
-        with numpy and produces both raw and sorted Veusz datasets, both
-        tagged with the file's base name plus 'raw' / 'sorted'.
-=============================================================================
 """
 # %% Imports
 from __future__ import annotations
 
+__version__ = "0.3.8"          # Semantic Versioning: see the Revisions entries above
+
 # %%% IMPORTS - Standard library
+
 import os
 import sys
+import threading
 import traceback
 from typing import Any, Dict, List
 
@@ -290,11 +592,14 @@ from _autoplot_common import (                      # noqa: E402
     QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QFormLayout,
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
     QProgressBar, QTextEdit, QLineEdit,
-    apply_theme, MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
+    MemoryAwareCache, MemoryMonitorConfig, MemoryMonitor,
+    Signal, QUEUED_CONNECTION, ProgressThrottle,
     run_in_threadpool, safe_dsname, mjd_to_datestr,
     is_gpu_available, enable_gpu, gpu_backend_name,
+    gpu_enabled, gpu_tooltip, gpu_usage_text, reset_gpu_usage,
     # v0.0.19: string gap parser
-    parse_gap_string,
+    parse_gap_string, GAP_STRING_HELP, check_gap_seconds,   # 0.3.7
+    parse_gap_seconds,
     begin_native_plugin_export, finish_native_plugin_export,
 )
 try:
@@ -309,8 +614,17 @@ except ImportError:  # pragma: no cover
 class _PluginBatchDialog(QDialog):
     """Modal qtpy dialog used by the plugin entry point."""
 
+    # 0.3.0: append_log() from another thread is delivered through this.
+    _log_from_thread = Signal(str)
+
     def __init__(self, parent=None, default_mode: str = "dark") -> None:
+        """Modal batch dialog shown inside Veusz: file list, the same options as
+        the standalone program (threads, RSS threshold, small/large gaps, overlay
+        and output choices), progress bars and a log.  Only this dialog is themed
+        (``default_mode``); the Veusz host keeps its own look.
+        """
         super().__init__(parent)
+        self._log_from_thread.connect(self.append_log, QUEUED_CONNECTION)
         self.setWindowTitle("Franks AutoPlot - Veusz Plugin")
         self.resize(900, 700)
         self.selected_files: List[str] = []
@@ -321,6 +635,7 @@ class _PluginBatchDialog(QDialog):
         trow = QHBoxLayout()
         trow.addWidget(QLabel("Theme:"))
         self.theme_combo = QComboBox()
+        self.theme_combo.setToolTip("Colours of this dialog only (Veusz keeps its own look).")
         self.theme_combo.addItems(["Dark Mode", "Light Mode"])
         self.theme_combo.setCurrentIndex(0 if default_mode == "dark" else 1)
         self.theme_combo.currentIndexChanged.connect(self._theme_changed)
@@ -330,23 +645,31 @@ class _PluginBatchDialog(QDialog):
 
         root.addWidget(QLabel("Input files:"))
         self.file_list = QListWidget()
+        self.file_list.setToolTip("Files to process; add them with Browse, remove all with Clear.")
         self.file_list.setMinimumHeight(160)
         root.addWidget(self.file_list)
         brow = QHBoxLayout()
         b1 = QPushButton("Browse...")
+        b1.setToolTip("Add files to the list (several can be selected at once).")
         b1.clicked.connect(self._browse)
         brow.addWidget(b1)
         b2 = QPushButton("Clear")
+        b2.setToolTip("Remove every file from the list (the files are not touched).")
         b2.clicked.connect(self._clear)
         brow.addWidget(b2)
         root.addLayout(brow)
 
         form = QFormLayout()
         self.thread_spin = QSpinBox()
+        self.thread_spin.setToolTip("Number of files read at the same time (threads).")
         self.thread_spin.setRange(1, max(1, (os.cpu_count() or 4) * 2))
         self.thread_spin.setValue(MAX_THREADS)
         form.addRow("Worker threads:", self.thread_spin)
         self.rss_spin = QSpinBox()
+        self.rss_spin.setToolTip(
+            "Resident memory (MiB) above which large arrays are moved from "
+            "RAM to temporary files on disk (numpy.memmap) - lower it on a "
+            "small computer.")
         self.rss_spin.setRange(128, 65536)
         self.rss_spin.setSingleStep(128)
         self.rss_spin.setValue(DEFAULT_RSS_HIGH_WATER_MB)
@@ -356,6 +679,9 @@ class _PluginBatchDialog(QDialog):
         self.datestr_cb = QCheckBox(
             "Generate MJD -> date strings (YYYY-MM-DD_HH:MM:SS) datasets"
         )
+        self.datestr_cb.setToolTip(("Also store each MJD column as text 'YYYY-MM-DD_HH:MM:SS' "
+            '(UTC) - only needed by old Veusz documents; the time axes '
+            'are date-times without it.'))
         self.datestr_cb.setChecked(False)
         root.addWidget(self.datestr_cb)
 
@@ -366,42 +692,120 @@ class _PluginBatchDialog(QDialog):
         self.gap_k_spin.setSingleStep(1.0)
         self.gap_k_spin.setDecimals(2)
         self.gap_k_spin.setValue(10.0)
-        form2.addRow("Gap K (× median Δt):", self.gap_k_spin)
+        self.gap_k_spin.setToolTip(
+            "Line break: a trace stops and restarts where its sample step "
+            "dt > K x median(dt) of that trace; the time axis stays one axis.")
+        form2.addRow("Small gap K (line break: dt > K × median dt):", self.gap_k_spin)
+        # 0.3.0: large gaps may also cut the axis (n x K x median dt).
+        self.gap_axis_spin = QDoubleSpinBox()
+        self.gap_axis_spin.setRange(0.0, 1.0e6)
+        self.gap_axis_spin.setSingleStep(10.0)
+        self.gap_axis_spin.setDecimals(1)
+        self.gap_axis_spin.setValue(100.0)
+        self.gap_axis_spin.setSpecialValueText("0 = no axis breaks")
+        self.gap_axis_spin.setToolTip(
+            "Large gap: the x axis is cut only where no trace has data for "
+            "dt > n x the small-gap threshold; 0 = never.")
+        form2.addRow("Large gap n (axis break: dt > n × small gap):", self.gap_axis_spin)
+        self.gap_axis_str = QLineEdit()
+        self.gap_axis_str.setPlaceholderText("e.g. 12h, 3d, 1m  (overrides n)")
+        self.gap_axis_str.setToolTip(GAP_STRING_HELP)
+        form2.addRow("Large gap fixed (text):", self.gap_axis_str)
+        # 0.3.3: each consequence of a gap is an option (either, both, none)
+        self.gap_lines_cb = QCheckBox("Break the line / trace at small gaps")
+        self.gap_lines_cb.setChecked(True)
+        self.gap_lines_cb.setToolTip(
+            "On: a trace's line stops and restarts at a small gap (NaN rows in "
+            "plot copies <y>_gaps; the data are not changed).  Off: lines are "
+            "drawn across every gap.")
+        form2.addRow(self.gap_lines_cb)
+        self.gap_axis_cb = QCheckBox("Break the x axis at large gaps")
+        self.gap_axis_cb.setChecked(True)
+        self.gap_axis_cb.setToolTip(
+            "On: the x axis is cut (Veusz broken axis) where no trace has data "
+            "for longer than the large gap.  Off: one continuous x axis.")
+        form2.addRow(self.gap_axis_cb)
+        self.gap_numeric_cb = QCheckBox("Also on x axes that are not time")
+        self.gap_numeric_cb.setChecked(True)
+        self.gap_numeric_cb.setToolTip(
+            "On: sorted non-time x data (frequency, index ...) get the same K / n "
+            "rule, with the step also large on a log scale.  Off: time axes only.")
+        form2.addRow(self.gap_numeric_cb)
+        # 0.3.5: Local time / UTC / MJD time axes - one set of pages per
+        # ticked clock (Local only by default); the zone line names this
+        # computer's time zone
+        self.time_axes_box = None
+        try:
+            from _suite_gui import TimeAxesBox
+            self.time_axes_box = TimeAxesBox()
+            form2.addRow(self.time_axes_box)
+        except Exception:  # pragma: no cover - _suite_gui missing: local only
+            self.time_axes_box = None
+        # 0.3.6: offload plot data to disk above this computer's RAM limit
+        # (shared with the suite's tools; 0 = never)
+        self.ram_limit_box = None
+        try:
+            from _suite_gui import RamLimitBox
+            self.ram_limit_box = RamLimitBox()
+            form2.addRow(self.ram_limit_box)
+        except Exception:  # pragma: no cover - _suite_gui missing: default limit
+            self.ram_limit_box = None
 
         self.gap_abs_spin = QDoubleSpinBox()
+        self.gap_abs_spin.setToolTip(
+            "Small gap as a fixed time in hours: the line breaks where two "
+            "samples are further apart. 0 = use K x median step.")
         self.gap_abs_spin.setRange(0.0, 1e12)
         self.gap_abs_spin.setDecimals(6)
         self.gap_abs_spin.setSingleStep(1.0)
         self.gap_abs_spin.setValue(0.0)
         # v0.0.16: spinbox is in HOURS; converted to MJD-days when read.
-        form2.addRow("Manual gap (hours; 0=auto):", self.gap_abs_spin)
+        form2.addRow("Small gap fixed (hours; 0 = K × median dt):", self.gap_abs_spin)
 
         # v0.0.19: free-form gap-string input (overrides spinbox when set).
         self.gap_abs_str = QLineEdit()
         self.gap_abs_str.setPlaceholderText("e.g. 5m3d2h  (overrides spinbox)")
-        self.gap_abs_str.setToolTip(
-            "Optional gap string.  Units: m = months (~30.44 days), "
-            "d = days, h = hours.  Examples: '3d', '120h', '5m 3d 2h'."
-        )
-        form2.addRow("Manual gap (string; overrides):", self.gap_abs_str)
+        # 0.3.3: the same help as the other gap text boxes (s, min, h, d, m)
+        self.gap_abs_str.setToolTip(GAP_STRING_HELP + "  Overrides the hours box.")
+        form2.addRow("Small gap fixed (text; overrides hours):", self.gap_abs_str)
         root.addLayout(form2)
+        # 0.3.3: K and the fixed small gap also scale the large gap (n x small
+        # gap), so they stay enabled while either break is on
+        self.gap_lines_cb.toggled.connect(self._enable_gap_values)
+        self.gap_axis_cb.toggled.connect(self._enable_gap_values)
+        # 0.3.7: the fixed-gap texts are checked while typed (red frame and the
+        # reason when an entry cannot be read)
+        try:
+            from _suite_gui import watch_gap_text
+            watch_gap_text(self.gap_abs_str, "small gap")
+            watch_gap_text(self.gap_axis_str, "large gap")
+        except Exception:  # pragma: no cover - _suite_gui missing
+            pass
 
         # v0.0.19: hide legend keys on every page.
         self.hide_keys_cb = QCheckBox("Hide legend keys on all pages")
+        self.hide_keys_cb.setToolTip(
+            "Hide the legend (key) on every page; trace names stay in the "
+            "data.")
         self.hide_keys_cb.setChecked(False)
         root.addWidget(self.hide_keys_cb)
 
-        self.combined_only_cb = QCheckBox(
-            "Combined (overlay) plots only -- skip per-file pages"
-        )
-        self.combined_only_cb.setChecked(False)
-        root.addWidget(self.combined_only_cb)
+        # 0.3.8: Per file / Combined axis / Overlay pages (replaces the
+        # "Combined (overlay) plots only -- skip per-file pages" box)
+        from _suite_gui import PageTypesBox
+        self.page_types_box = PageTypesBox(notes={
+            "combined": "Franks: a page 'Combined', every file of the same layout joined and sorted on MJD."})
+        root.addWidget(self.page_types_box)
 
         # --- Datetime-duplicate plots (v0.0.11) ---------------------------
         # v0.0.11: datetime-duplicate toggle.
         self.datetime_dup_cb = QCheckBox(
-            "Duplicate plots with datetime X axis (YYYY-MM-DD HH:MM:SS)"
+            "Legacy: also build duplicate _dt / _dt_labels pages"
         )
+        self.datetime_dup_cb.setToolTip(
+            "Old style: also build the duplicate _dt / _dt_labels pages. "
+            "Every page already has a local ISO 8601 date-time axis, so "
+            "this is off by default.")
         self.datetime_dup_cb.setChecked(False)
         root.addWidget(self.datetime_dup_cb)
 
@@ -425,36 +829,38 @@ class _PluginBatchDialog(QDialog):
         dens_row.addStretch(1)
         root.addLayout(dens_row)
         self.emit_numeric_dt_cb = QCheckBox(
-            "Emit numeric-x dt page (v0.0.14 lineage)"
+            "Legacy: per-point date text labels page (_dt)"
         )
-        self.emit_numeric_dt_cb.setChecked(True)
+        self.emit_numeric_dt_cb.setChecked(False)
         self.emit_numeric_dt_cb.setToolTip(
-            "When checked, the per-file '<base>_dt' page (and the "
-            "matching 'Overlay_<col>_dt' overlay) is emitted with a "
-            "numeric seconds x axis plus density-controlled text "
-            "labels."
+            "Off by default (0.3.0). When checked, also builds the older _dt page: "
+            "the sort-key x axis with density-thinned date text labels "
+            "on the points (xy.labels).  The dt_labels page below is the "
+            "date-time version and needs no labels."
         )
         root.addWidget(self.emit_numeric_dt_cb)
         self.emit_text_dt_cb = QCheckBox(
-            "Emit text-x dt_labels page (v0.0.15 new)"
+            "Date-time dt_labels page (Veusz date-time axis, local ISO 8601)"
         )
         self.emit_text_dt_cb.setChecked(True)
         self.emit_text_dt_cb.setToolTip(
-            "When checked, the per-file '<base>_dt_labels' page "
-            "(and the matching 'Overlay_<col>_dt_labels' overlay) is "
-            "emitted with a per-point text dataset as xData and the x "
-            "axis set to mode='labels'.  Sample spacing is uniform."
+            "When checked, builds the dt_labels pages: the time stamps are "
+            "stored as Veusz date-time datasets (UTC) and drawn on a "
+            "date-time axis in the local time of this computer, ticks "
+            "like 2026-11-09T08:39:00-05:00 (24 h, with the UTC offset); "
+            "spacing is proportional to elapsed time and gaps break the axis."
         )
         root.addWidget(self.emit_text_dt_cb)
 
-        # --- GPU acceleration (CuPy, optional) (v0.0.10) ------------------
-        self.gpu_cb = QCheckBox("Use GPU acceleration (CuPy) for large sorts")
+        # --- GPU acceleration (NVIDIA or AMD, optional) (v0.0.10; 0.3.1) ---
+        self.gpu_cb = QCheckBox("Sort large arrays on the GPU (NVIDIA or AMD)")
         self.gpu_cb.setChecked(False)
         self.gpu_cb.setEnabled(is_gpu_available())
-        self.gpu_cb.setToolTip(gpu_backend_name())
+        self.gpu_cb.setToolTip(gpu_tooltip())
         root.addWidget(self.gpu_cb)
 
         self.log = QTextEdit()
+        self.log.setToolTip("Progress and messages of this session, with time stamps.")
         self.log.setReadOnly(True)
         self.log.setMinimumHeight(140)
         root.addWidget(self.log)
@@ -473,21 +879,36 @@ class _PluginBatchDialog(QDialog):
 
         arow = QHBoxLayout()
         self.process_btn = QPushButton("Process Files")
+        self.process_btn.setToolTip(
+            "Close the dialog and process the listed files into a new "
+            "native .vszh5 project (the open Veusz document is not "
+            "changed).")
         self.process_btn.clicked.connect(self.accept)
         arow.addWidget(self.process_btn)
         self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setToolTip("Close the dialog without processing.")
         self.cancel_btn.clicked.connect(self.reject)
         arow.addWidget(self.cancel_btn)
         root.addLayout(arow)
 
-        apply_theme(QApplication.instance(), default_mode)
+        self._style_dialog(default_mode)
 
     def _theme_changed(self, idx: int) -> None:
+        """Theme combo box handler: 0 = dark, 1 = light."""
         mode = "dark" if idx == 0 else "light"
         self._theme_mode = mode
-        apply_theme(QApplication.instance(), mode)
+        self._style_dialog(mode)
+
+    def _style_dialog(self, mode: str) -> None:
+        """Theme this dialog only (the Veusz host keeps its own look)."""
+        try:
+            from _suite_gui import dialog_stylesheet
+            self.setStyleSheet(dialog_stylesheet(mode))
+        except Exception:  # pragma: no cover - _suite_gui missing
+            pass
 
     def _browse(self) -> None:
+        """Ask for Franks data files and add the new ones to the list."""
         files, _ = QFileDialog.getOpenFileNames(
             self, "Select Franks data files", "",
             "Franks files (*.t00new *.dat *.bak* *.OrigBack* *.back);;All files (*)"
@@ -500,11 +921,32 @@ class _PluginBatchDialog(QDialog):
             self.file_list.addItem(os.path.basename(p))
 
     def _clear(self) -> None:
+        """Empty the file list (nothing is read before Process, so the file
+        names are all there is to clear; the data of a run are released when
+        it ends, 0.3.4)."""
         self.selected_files.clear()
         self.file_list.clear()
 
+    def _enable_gap_values(self, _checked=False):
+        """Enable the small-gap values while either break is on and the
+        large-gap values while axis breaks are on (0.3.3)."""
+        small = self.gap_lines_cb.isChecked() or self.gap_axis_cb.isChecked()
+        for widget in (self.gap_k_spin, self.gap_abs_spin, self.gap_abs_str):
+            widget.setEnabled(small)
+        for widget in (self.gap_axis_spin, self.gap_axis_str):
+            widget.setEnabled(self.gap_axis_cb.isChecked())
+
     def append_log(self, msg: str) -> None:
+        """Append ``msg`` to the dialog's log pane (safe from any thread: off
+        the GUI thread the text is queued to it, 0.3.0)."""
+        if threading.current_thread() is not threading.main_thread():
+            self._log_from_thread.emit(msg)
+            return
         self.log.append(msg)
+
+    def rss_crossed(self, rss: float) -> None:
+        """Memory monitor callback (monitor thread): log the RSS crossing."""
+        self.append_log("RSS over high-water mark (%.1f MiB) -- spilling." % rss)
 
 
 # ============================================================================
@@ -524,6 +966,10 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
     )
 
     def __init__(self) -> None:
+        """Declare the plugin fields shown by Veusz (output file, threads, RSS
+        threshold, small/large gap settings, theme, ...).  Raises RuntimeError
+        outside the Veusz plugin host - run Franks_AutoPlot.py there instead.
+        """
         if vzp is None:
             raise RuntimeError("Use Franks_AutoPlot.py outside the Veusz plugin host")
         self.fields = [
@@ -563,15 +1009,10 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
                                "10 default approximates v0.0.14 sparse)",
                          default=10, minval=0, maxval=100),
             vzp.FieldBool("datetime_emit_numeric_dt",
-                          descr="Emit numeric-x dt page "
-                                "(<base>_dt, Overlay_<col>_dt) "
-                                "with density-controlled date labels",
-                          default=True),
+                          descr="Legacy _dt page with per-point date text labels (off by default)",
+                          default=False),
             vzp.FieldBool("datetime_emit_text_dt",
-                          descr="Emit text-x dt_labels page "
-                                "(<base>_dt_labels, "
-                                "Overlay_<col>_dt_labels) using a "
-                                "per-point text dataset as xData",
+                          descr="dt_labels page: Veusz date-time axis in local ISO 8601 time",
                           default=True),
             # v0.0.11: pre-seed the datetime-duplicate checkbox
             vzp.FieldBool("datetime_duplicate",
@@ -587,10 +1028,36 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
             vzp.FieldBool("hide_keys",
                           descr="Hide legend keys on every page",
                           default=False),
+            vzp.FieldFloat("gap_axis_n",
+                           descr="Large gap n (x-axis break: dt > n x small gap; 0 = none)",
+                           default=100.0),
+            # 0.3.8: page kinds
+            vzp.FieldText("pages",
+                          descr="Pages: per_file, combined (combined axis), overlay - comma "
+                                "separated, or all",
+                          default="per_file,combined,overlay"),
+            vzp.FieldText("gap_axis_string",
+                          descr="Large gap fixed, e.g. 12h or 3d (overrides n)",
+                          default=""),
+            # 0.3.3: gap options
+            vzp.FieldBool("gap_break_lines",
+                          descr="Break the line / trace at small gaps", default=True),
+            vzp.FieldBool("gap_break_axis",
+                          descr="Break the x axis at large gaps", default=True),
+            vzp.FieldBool("gap_numeric",
+                          descr="Gap rule also on x axes that are not time", default=True),
+            # 0.3.5: time-axis clocks (one set of pages per clock)
+            vzp.FieldBool("time_local",
+                          descr="Time axes in local time (this computer's zone)", default=True),
+            vzp.FieldBool("time_utc", descr="Time axes in UTC too", default=False),
+            vzp.FieldBool("time_mjd", descr="Time axes in MJD too", default=False),
         ]
 
     # ------------------------------------------------------------------
     def apply(self, interface, fields):
+        """Plugin entry point; any error is re-raised as a ToolsPluginException
+        with the traceback so Veusz shows it.
+        """
         try:
             return self._apply(interface, fields)
         except Exception as exc:
@@ -600,6 +1067,11 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
             )
 
     def _apply(self, interface, fields):
+        """Run the batch dialog with the field values as defaults, then process
+        the chosen files into a separate NativeDocument with the dialog's
+        TimeLayout and write it as a native .vszh5 project
+        (finish_native_plugin_export).  The host Veusz document is not changed.
+        """
         app = QApplication.instance() or QApplication(sys.argv)
         mode = "dark" if (fields.get("default_theme") or "dark").lower().startswith("d") else "light"
         dlg = _PluginBatchDialog(default_mode=mode)
@@ -623,7 +1095,32 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
             dlg.gap_abs_spin.setValue(float(fields.get("gap_absolute") or 0.0))
         except Exception:
             pass
-        dlg.combined_only_cb.setChecked(bool(fields.get("combined_only") or False))
+        try:                                     # 0.3.0: axis-break multiple n
+            _n = fields.get("gap_axis_n")
+            dlg.gap_axis_spin.setValue(100.0 if _n is None else float(_n))
+            dlg.gap_axis_str.setText(str(fields.get("gap_axis_string") or ""))
+        except Exception:
+            pass
+        for _key, _box in (("gap_break_lines", dlg.gap_lines_cb),    # 0.3.3
+                           ("gap_break_axis", dlg.gap_axis_cb),
+                           ("gap_numeric", dlg.gap_numeric_cb)):
+            _box.setChecked(bool(fields.get(_key, True)))
+        if dlg.time_axes_box is not None:        # 0.3.5: Local / UTC / MJD
+            dlg.time_axes_box.set_clocks(
+                [_clock for _clock, _key, _default in (("local", "time_local", True),
+                                                       ("utc", "time_utc", False),
+                                                       ("mjd", "time_mjd", False))
+                 if bool(fields.get(_key, _default))])
+        # 0.3.8: page kinds from the "pages" field; the old "combined_only"
+        # field still unticks Per file
+        from _autoplot_native import page_kinds, describe_page_kinds
+        try:
+            _kinds = page_kinds(fields.get("pages") or None)
+        except ValueError:
+            _kinds = page_kinds(None)
+        if fields.get("combined_only"):
+            _kinds = tuple(k for k in _kinds if k != "per_file")
+        dlg.page_types_box.set_kinds(_kinds)
         # v0.0.11: pre-seed the datetime-duplicate checkbox
         dlg.datetime_dup_cb.setChecked(
             bool(fields.get("datetime_duplicate") or False)
@@ -644,7 +1141,7 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         _pct = max(0, min(100, _pct))
         dlg.label_density_spin.setValue(_pct)
         dlg.emit_numeric_dt_cb.setChecked(
-            bool(fields.get("datetime_emit_numeric_dt", True))
+            bool(fields.get("datetime_emit_numeric_dt", False))
         )
         dlg.emit_text_dt_cb.setChecked(
             bool(fields.get("datetime_emit_text_dt", True))
@@ -674,11 +1171,15 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         interface, output_file = begin_native_plugin_export(fields)
         if interface is None:
             return
+        interface.offload_log = dlg.append_log         # 0.3.6: offload messages
         cache = MemoryAwareCache(MemoryMonitorConfig(
             rss_high_water_mb=int(dlg.rss_spin.value())
         ))
-        mon = MemoryMonitor(cache, callback=lambda r: dlg.append_log(
-            "RSS over high-water mark (%.1f MiB) -- spilling." % r))
+        # 0.3.0: a bound method of the dialog (held weakly by the monitor
+        # thread; append_log is thread-safe).  The old lambda let the monitor
+        # thread drop the last reference and destroy the dialog off the GUI
+        # thread, which crashed PySide6 later.
+        mon = MemoryMonitor(cache, callback=dlg.rss_crossed)
         mon.start()
 
         work = [(p, parse_franks_file, (p, cache)) for p in dlg.selected_files]
@@ -693,11 +1194,20 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         dlg.column_progress.setValue(0)
 
         def _cb(done, total, key):
+            """Reader progress: advance the bar, log the file (parsed) and keep the
+            dialog responsive.
+            """
             dlg.progress.setValue(done)
             dlg.append_log("parsed [%d/%d] %s" % (done, total, os.path.basename(key)))
             app.processEvents()
 
+        col_throttle = ProgressThrottle()
         def _col_cb(done, total_ops):
+            """Per-file column progress: resize the bar to ``total_ops`` when it
+            changes and set it to ``done``.
+            """
+            if not col_throttle.due(done, total_ops, force_end=False):    # 0.3.1: <= 20 updates/s
+                return
             if dlg.column_progress.maximum() != max(1, total_ops):
                 dlg.column_progress.setRange(0, max(1, total_ops))
             dlg.column_progress.setValue(done)
@@ -708,6 +1218,7 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         # v0.0.16: spinbox is in HOURS -- convert to MJD-days.
         gap_absolute_hours = float(dlg.gap_abs_spin.value())
         gap_absolute = gap_absolute_hours / 24.0
+        gap_absolute_s = gap_absolute_hours * 3600.0      # 0.3.7: exact seconds for the layout
         # v0.0.19: free-form gap string overrides spinbox when set.
         gap_string_text = ""
         try:
@@ -715,11 +1226,21 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         except Exception:
             gap_string_text = ""
         if gap_string_text:
-            gap_absolute = parse_gap_string(gap_string_text,
-                                            log_cb=dlg.append_log)
+            # 0.3.7: an entry that cannot be read is logged and the hours box
+            # is used (before, it gave 0 and the hours box was ignored too)
+            _seconds, _problem = check_gap_seconds(gap_string_text)
+            if _problem is None:
+                gap_absolute, gap_absolute_s = _seconds / 86400.0, _seconds
+            else:
+                dlg.append_log("  The fixed small gap %r is not used: %s; %s." % (
+                    gap_string_text, _problem,
+                    "the hours box (%r h) is used" % gap_absolute_hours
+                    if gap_absolute_hours > 0 else "the K rule applies"))
         # v0.0.19: hide-legend-keys checkbox
         hide_keys = bool(dlg.hide_keys_cb.isChecked())
-        plot_individual = not bool(dlg.combined_only_cb.isChecked())
+        kinds = dlg.page_types_box.kinds()                 # 0.3.8
+        dlg.append_log(describe_page_kinds(kinds))
+        plot_individual = "per_file" in kinds
         # v0.0.11: datetime-duplicate toggle
         datetime_duplicate = bool(dlg.datetime_dup_cb.isChecked())
         # v0.0.15: density-pct + dt page-variant toggles.
@@ -729,13 +1250,16 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         # v0.0.10: drive the process-wide GPU flag from the checkbox
         enable_gpu(dlg.gpu_cb.isChecked() and dlg.gpu_cb.isEnabled())
         dlg.append_log("GPU backend: %s" % gpu_backend_name())
+        reset_gpu_usage()                     # 0.3.1: count this batch's GPU / CPU calls
         file_records = []  # accumulator for the overlay post-pass
         results = run_in_threadpool(work,
                                     max_workers=int(dlg.thread_spin.value()),
                                     progress_cb=_cb)
         emit_datestr = bool(dlg.datestr_cb.isChecked())
         dlg.append_log("Building native project datasets and pages...")
-        for idx, (path, data) in enumerate(results.items(), start=1):
+        # 0.3.0: pages in file-name order, not thread completion order.
+        for idx, (path, data) in enumerate(sorted(results.items(), key=lambda item: (
+                os.path.basename(str(item[0])), str(item[0]))), start=1):
             if isinstance(data, Exception):
                 dlg.append_log("  ERROR %s: %s" % (path, data))
                 dlg.parse_progress.setValue(idx)
@@ -766,13 +1290,32 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
                 file_records.append({
                     "base": data.get("base_name") or
                             safe_dsname(os.path.basename(path)),
+                    # 0.3.2: source_<file> tag of the overlay datasets
+                    "source": (data.get("source_name") or data.get("base_name")
+                               or os.path.basename(path)),
                     "columns": data.get("columns") or {},
                     "sort_key": data.get("sort_key"),
                 })
             dlg.parse_progress.setValue(idx)
             app.processEvents()
+        # 0.3.8: the combined-axis page (every file of the same layout joined
+        # on one MJD axis), just above the overlay pages
+        if "combined" in kinds and file_records:
+            try:
+                from Franks_AutoPlot import push_combined_franks_pages
+                ordered = [(p, d) for p, d in sorted(results.items(), key=lambda item: (
+                    os.path.basename(str(item[0])), str(item[0]))) if not isinstance(d, Exception)]
+                push_combined_franks_pages(
+                    interface, ordered, log_cb=dlg.append_log, emit_datestr=emit_datestr,
+                    gap_k=gap_k, gap_absolute=gap_absolute,
+                    datetime_duplicate=datetime_duplicate,
+                    datetime_label_density_pct=datetime_label_density_pct,
+                    datetime_emit_numeric_dt=datetime_emit_numeric_dt,
+                    datetime_emit_text_dt=datetime_emit_text_dt, hide_keys=hide_keys)
+            except Exception as exc:
+                dlg.append_log("  Combined-axis page failed: %s" % exc)
         # Build cross-file column-name overlay pages on the host document.
-        if file_records:
+        if file_records and "overlay" in kinds:
             try:
                 build_unit_overlay_pages_franks(
                     interface, file_records,
@@ -796,7 +1339,33 @@ class FranksAutoPlotPlugin(vzp.ToolsPlugin if vzp is not None else object):
         dlg.column_progress.setVisible(False)
         mon.stop()
         cache.cleanup()
+        # 0.3.0: every time axis in local ISO 8601; line breaks where
+        # dt > K x median(dt), axis breaks where dt > n x K x median(dt).
+        from _autoplot_native import TimeLayout
+        _axis_text = dlg.gap_axis_str.text().strip()
+        interface.time_layout = TimeLayout(
+            k=gap_k, n=float(dlg.gap_axis_spin.value()), manual_s=gap_absolute_s,
+            axis_manual_s=(parse_gap_seconds(_axis_text, log_cb=dlg.append_log,
+                                             what="large gap")
+                           if _axis_text else 0.0),
+            break_lines=dlg.gap_lines_cb.isChecked(), break_axis=dlg.gap_axis_cb.isChecked(),
+            numeric=dlg.gap_numeric_cb.isChecked(),
+            clocks=dlg.time_axes_box.clocks() if dlg.time_axes_box is not None else None)
+        dlg.append_log(interface.time_layout.describe())
+        dlg.append_log(interface.time_layout.describe_clocks())          # 0.3.5
         finish_native_plugin_export(interface, output_file, fields, dlg.append_log)
+        if gpu_enabled():
+            dlg.append_log("GPU use: %s" % gpu_usage_text())
+        # 0.3.4: the project is written; its data and the files read go now and
+        # the memory is handed back to the operating system (Veusz keeps
+        # running, and the dialog's Clear only ever held file names)
+        results = file_records = None
+        try:
+            interface.release()
+        except Exception:
+            pass
+        from _autoplot_native import release_memory
+        release_memory(dlg.append_log)
         dlg.append_log("Done.")
 
 
